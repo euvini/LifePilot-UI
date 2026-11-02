@@ -1,11 +1,13 @@
 import type { Metadata } from "next"
 
-import { WorkspaceClient } from "@/components/workspace/workspace-client"
+import { DashboardView } from "@/components/dashboard/dashboard-view"
 
 export const metadata: Metadata = {
-  title: "Workspace & Copiloto IA",
+  title: "Dashboard · LifePilot AI",
+  description:
+    "Visão geral dos seus planos de mudança, cronômetro de dias restantes, checklist inteligente e Copiloto de IA.",
 }
 
 export default function HomePage() {
-  return <WorkspaceClient />
+  return <DashboardView />
 }

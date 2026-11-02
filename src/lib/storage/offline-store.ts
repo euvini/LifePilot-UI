@@ -5,14 +5,14 @@ import type {
   CreateTaskDto,
   UpdateTaskDto,
 } from "@/lib/api/types"
-import type { CopilotSuggestion, MovingPlan, TaskItem } from "@/lib/mock-data"
+import type { CopilotSuggestion, MovingPlan, TaskItem } from "@/types/plan"
 
 const STORAGE_KEYS = {
-  PLANS: "lifepilot:cache:plans:v1",
-  TASKS: "lifepilot:cache:tasks:v1",
-  SUGGESTIONS: "lifepilot:cache:suggestions:v1",
-  TIMESTAMPS: "lifepilot:cache:timestamps:v1",
-  OUTBOX: "lifepilot:outbox:v1",
+  PLANS: "lifepilot:cache:plans:v2",
+  TASKS: "lifepilot:cache:tasks:v2",
+  SUGGESTIONS: "lifepilot:cache:suggestions:v2",
+  TIMESTAMPS: "lifepilot:cache:timestamps:v2",
+  OUTBOX: "lifepilot:outbox:v2",
 } as const
 
 export type OutboxMutation =

@@ -1,5 +1,5 @@
 import type { MovingPlanResponse, TaskResponse } from "@/lib/api/types"
-import type { MovingPlan, TaskIconKey, TaskItem } from "@/lib/mock-data"
+import type { MovingPlan, TaskIconKey, TaskItem } from "@/types/plan"
 
 export function computeDaysRemaining(movingDateStr: string): number {
   const [y, m, d] = movingDateStr.split("-").map(Number)

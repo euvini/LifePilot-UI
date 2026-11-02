@@ -6,13 +6,6 @@ import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
 import type { CreateMovingPlanDto } from "@/lib/api/types"
 import {
-  INITIAL_MOVING_PLANS,
-  type CopilotSuggestion,
-  type MovingPlan,
-  type TaskItem,
-  type TaskStatus,
-} from "@/lib/mock-data"
-import {
   mapBackendPlanToUi,
   mapBackendTaskToItem,
 } from "@/lib/storage/mappers"
@@ -20,6 +13,12 @@ import {
   offlineStore,
   type OutboxMutation,
 } from "@/lib/storage/offline-store"
+import type {
+  CopilotSuggestion,
+  MovingPlan,
+  TaskItem,
+  TaskStatus,
+} from "@/types/plan"
 
 export type QuickViewFilter = "all" | "in_progress" | "ai"
 
@@ -32,12 +31,13 @@ const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
 interface WorkspaceStoreValue {
   plans: MovingPlan[]
   activePlanId: string
-  activePlan: MovingPlan
+  activePlan: MovingPlan | null
   quickFilter: QuickViewFilter
   checklistTab: "all" | "pending"
   isGeneratingAi: boolean
   isOnline: boolean
   isSyncing: boolean
+  isLoadingPlans: boolean
   lastAiError: ApiError | null
   clearAiError: () => void
   selectPlan: (planId: string) => void
@@ -52,6 +52,7 @@ interface WorkspaceStoreValue {
   generateAiSuggestions: (maxSuggestions?: number) => Promise<void>
   createNewPlan: (dto: CreateMovingPlanDto) => Promise<MovingPlan>
   refreshActivePlanTasks: () => Promise<void>
+  refreshPlans: () => Promise<void>
 }
 
 const WorkspaceStoreContext = React.createContext<WorkspaceStoreValue | null>(
@@ -63,15 +64,19 @@ export function WorkspaceProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [plans, setPlans] = React.useState<MovingPlan[]>(() => {
-    const cached = offlineStore.getPlans()
-    return cached && cached.length > 0 ? cached : INITIAL_MOVING_PLANS
-  })
+  const [plans, setPlans] = React.useState<MovingPlan[]>([])
+  const [activePlanId, setActivePlanId] = React.useState<string>("")
 
-  const [activePlanId, setActivePlanId] = React.useState<string>(() => {
-    const cached = offlineStore.getPlans()
-    return cached && cached.length > 0 ? cached[0].id : "mp-lisboa-302"
-  })
+  // Hidratação a partir do cache local no primeiro render do cliente
+  React.useEffect(() => {
+    void Promise.resolve().then(() => {
+      const cached = offlineStore.getPlans()
+      if (cached && cached.length > 0) {
+        setPlans(cached)
+        setActivePlanId((prev) => prev || cached[0].id)
+      }
+    })
+  }, [])
 
   const [quickFilter, setQuickFilterState] =
     React.useState<QuickViewFilter>("all")
@@ -83,9 +88,11 @@ export function WorkspaceProvider({
     return typeof window !== "undefined" ? navigator.onLine : true
   })
   const [isSyncing, setIsSyncing] = React.useState(false)
+  const [isLoadingPlans, setIsLoadingPlans] = React.useState(true)
   const [lastAiError, setLastAiError] = React.useState<ApiError | null>(null)
 
   const activePlan = React.useMemo(() => {
+    if (plans.length === 0) return null
     return plans.find((p) => p.id === activePlanId) ?? plans[0]
   }, [plans, activePlanId])
 
@@ -142,22 +149,54 @@ export function WorkspaceProvider({
     }
   }, [syncOutbox])
 
-  // Carrega planos do backend se online e cache estiver stale
+  // Função centralizada para recarregar lista de planos do backend
+  const refreshPlans = React.useCallback(async () => {
+    if (!navigator.onLine) {
+      setIsLoadingPlans(false)
+      return
+    }
+
+    try {
+      setIsLoadingPlans(true)
+      const backendPlans = await api.movingPlans.list()
+      if (Array.isArray(backendPlans)) {
+        const mapped = backendPlans.map((bp, idx) => {
+          const cachedTasks = offlineStore.getTasks(bp.id) ?? []
+          const cachedSuggs = offlineStore.getSuggestions(bp.id) ?? []
+          const uiPlan = mapBackendPlanToUi(bp, cachedTasks, idx)
+          uiPlan.copilotSuggestions = cachedSuggs
+          return uiPlan
+        })
+
+        setPlans(mapped)
+        offlineStore.setPlans(mapped)
+
+        if (mapped.length > 0 && (!activePlanId || !mapped.some((p) => p.id === activePlanId))) {
+          setActivePlanId(mapped[0].id)
+        }
+      }
+    } catch (err) {
+      console.warn("Falha ao buscar planos do backend:", err)
+    } finally {
+      setIsLoadingPlans(false)
+    }
+  }, [activePlanId])
+
+  // Carrega planos na inicialização
   React.useEffect(() => {
     let isMounted = true
 
-    async function loadPlans() {
-      if (!navigator.onLine) return
+    async function loadInitial() {
+      if (!navigator.onLine) {
+        setIsLoadingPlans(false)
+        return
+      }
 
       try {
-        if (!offlineStore.isStale("plans")) {
-          return
-        }
-
         const backendPlans = await api.movingPlans.list()
         if (!isMounted) return
 
-        if (Array.isArray(backendPlans) && backendPlans.length > 0) {
+        if (Array.isArray(backendPlans)) {
           const mapped = backendPlans.map((bp, idx) => {
             const cachedTasks = offlineStore.getTasks(bp.id) ?? []
             const cachedSuggs = offlineStore.getSuggestions(bp.id) ?? []
@@ -169,17 +208,23 @@ export function WorkspaceProvider({
           setPlans(mapped)
           offlineStore.setPlans(mapped)
 
-          // Garante activePlanId válido
-          if (!mapped.some((p) => p.id === activePlanId)) {
+          if (
+            mapped.length > 0 &&
+            (!activePlanId || !mapped.some((p) => p.id === activePlanId))
+          ) {
             setActivePlanId(mapped[0].id)
           }
         }
-      } catch {
-        // Falha silenciosa: mantém dados do cache/seed
+      } catch (err) {
+        console.warn("Falha ao carregar planos iniciais do backend:", err)
+      } finally {
+        if (isMounted) {
+          setIsLoadingPlans(false)
+        }
       }
     }
 
-    void loadPlans()
+    void loadInitial()
 
     return () => {
       isMounted = false
@@ -238,7 +283,7 @@ export function WorkspaceProvider({
     }
   }, [activePlanId])
 
-  // Recarga manual forçada sob demanda
+  // Recarga manual forçada sob demanda de tarefas do plano ativo
   const refreshActivePlanTasks = React.useCallback(async () => {
     if (!activePlanId || !navigator.onLine) return
 
@@ -293,6 +338,7 @@ export function WorkspaceProvider({
   // Atualização otimista de status da tarefa + persistência + chamada backend / outbox
   const cycleTaskStatus = React.useCallback(
     async (taskId: string) => {
+      if (!activePlan) return
       const currentTask = activePlan.tasks.find((t) => t.id === taskId)
       if (!currentTask) return
 
@@ -360,6 +406,7 @@ export function WorkspaceProvider({
   // Criação de tarefa rápida
   const addQuickTask = React.useCallback(
     async (title: string, dueDate: string): Promise<boolean> => {
+      if (!activePlan) return false
       const trimmed = title.trim()
       if (!trimmed) return false
 
@@ -445,6 +492,7 @@ export function WorkspaceProvider({
 
   const deleteTask = React.useCallback(
     async (taskId: string) => {
+      if (!activePlan) return
       const updatedTasks = activePlan.tasks.filter((t) => t.id !== taskId)
       const total = updatedTasks.length
       const completed = updatedTasks.filter((t) => t.status === "DONE").length
@@ -493,6 +541,7 @@ export function WorkspaceProvider({
 
   const toggleSuggestion = React.useCallback(
     (suggestionId: string) => {
+      if (!activePlan) return
       setPlans((prev) =>
         prev.map((plan) => {
           if (plan.id !== activePlan.id) return plan
@@ -507,10 +556,11 @@ export function WorkspaceProvider({
         })
       )
     },
-    [activePlan.id]
+    [activePlan]
   )
 
   const acceptSuggestionsBatch = React.useCallback(async () => {
+    if (!activePlan) return
     const selectedSuggestions = activePlan.copilotSuggestions.filter(
       (s) => s.selected
     )
@@ -587,17 +637,19 @@ export function WorkspaceProvider({
   }, [activePlan])
 
   const discardSuggestions = React.useCallback(() => {
+    if (!activePlan) return
     setPlans((prev) =>
       prev.map((plan) =>
         plan.id === activePlan.id ? { ...plan, copilotSuggestions: [] } : plan
       )
     )
     offlineStore.setSuggestions(activePlan.id, [])
-    toast("Sugestões em memória descartadas.")
-  }, [activePlan.id])
+    toast("Sugestões descartadas.")
+  }, [activePlan])
 
   const generateAiSuggestions = React.useCallback(
     async (maxSuggestions: number = 10) => {
+      if (!activePlan) return
       setIsGeneratingAi(true)
       setLastAiError(null)
 
@@ -627,7 +679,7 @@ export function WorkspaceProvider({
         )
         offlineStore.setSuggestions(activePlan.id, mapped)
         toast.success(
-          `${mapped.length} sugestões geradas em memória pelo Copiloto IA.`
+          `${mapped.length} sugestões geradas pelo Copiloto IA.`
         )
       } catch (err: unknown) {
         if (err instanceof ApiError) {
@@ -646,49 +698,11 @@ export function WorkspaceProvider({
         } else {
           toast.error("Erro inesperado ao gerar sugestões.")
         }
-
-        const fallback: CopilotSuggestion[] = [
-          {
-            id: `ai-fb-1-${Date.now()}`,
-            title: "Solicitar PB4 (Seguro Saúde Internacional)",
-            dueDate:
-              activePlan.movingDate > "2026-11-18"
-                ? "2026-11-18"
-                : activePlan.movingDate,
-            selected: true,
-          },
-          {
-            id: `ai-fb-2-${Date.now()}`,
-            title: "Emitir CNH Internacional (PID) no Detran",
-            dueDate:
-              activePlan.movingDate > "2026-11-25"
-                ? "2026-11-25"
-                : activePlan.movingDate,
-            selected: true,
-          },
-          {
-            id: `ai-fb-3-${Date.now()}`,
-            title: "Transferir titularidade de água e energia",
-            dueDate:
-              activePlan.movingDate > "2026-12-10"
-                ? "2026-12-10"
-                : activePlan.movingDate,
-            selected: true,
-          },
-        ]
-
-        setPlans((prev) =>
-          prev.map((plan) =>
-            plan.id === activePlan.id && plan.copilotSuggestions.length === 0
-              ? { ...plan, copilotSuggestions: fallback }
-              : plan
-          )
-        )
       } finally {
         setIsGeneratingAi(false)
       }
     },
-    [activePlan.id, activePlan.movingDate]
+    [activePlan]
   )
 
   const createNewPlan = React.useCallback(
@@ -762,13 +776,14 @@ export function WorkspaceProvider({
   const value = React.useMemo<WorkspaceStoreValue>(
     () => ({
       plans,
-      activePlanId: activePlan.id,
+      activePlanId,
       activePlan,
       quickFilter,
       checklistTab,
       isGeneratingAi,
       isOnline,
       isSyncing,
+      isLoadingPlans,
       lastAiError,
       clearAiError,
       selectPlan,
@@ -783,15 +798,18 @@ export function WorkspaceProvider({
       generateAiSuggestions,
       createNewPlan,
       refreshActivePlanTasks,
+      refreshPlans,
     }),
     [
       plans,
+      activePlanId,
       activePlan,
       quickFilter,
       checklistTab,
       isGeneratingAi,
       isOnline,
       isSyncing,
+      isLoadingPlans,
       lastAiError,
       clearAiError,
       selectPlan,
@@ -805,6 +823,7 @@ export function WorkspaceProvider({
       generateAiSuggestions,
       createNewPlan,
       refreshActivePlanTasks,
+      refreshPlans,
     ]
   )
 

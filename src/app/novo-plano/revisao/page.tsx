@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 
 import { NewPlanWizard } from "@/components/plans/new-plan-wizard"
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function NovoPlanoRevisaoPage() {
-  return <NewPlanWizard initialStep={2} />
+  return (
+    <Suspense fallback={<div className="p-8">Carregando revisão...</div>}>
+      <NewPlanWizard initialStep={2} />
+    </Suspense>
+  )
 }

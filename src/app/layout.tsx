@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
   Bricolage_Grotesque,
@@ -49,7 +50,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <TooltipProvider>
           <WorkspaceProvider>
             <div className="flex min-h-dvh w-full bg-canvas text-sm leading-4 antialiased">
-              <AppSidebar />
+              <Suspense
+                fallback={
+                  <aside className="sticky top-0 h-dvh w-72 shrink-0 border-r border-border bg-surface-subtle" />
+                }
+              >
+                <AppSidebar />
+              </Suspense>
               <div className="flex min-w-0 grow basis-0 flex-col">
                 {children}
               </div>

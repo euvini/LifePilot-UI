@@ -25,8 +25,12 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Plus, RefreshCw } from "lucide-react"
+
 import { useWorkspaceStore } from "@/context/workspace-store"
-import { type TaskIconKey, type TaskStatus } from "@/lib/mock-data"
+import type { TaskIconKey, TaskStatus } from "@/types/plan"
 
 function TaskCategoryIcon({
   icon,
@@ -54,14 +58,17 @@ function TaskCategoryIcon({
   }
 }
 
-export function WorkspaceClient() {
+export function WorkspaceClient({ planId }: { planId?: string } = {}) {
+  const router = useRouter()
   const {
     activePlan,
+    isLoadingPlans,
     quickFilter,
     checklistTab,
     isGeneratingAi,
     lastAiError,
     clearAiError,
+    selectPlan,
     setQuickFilter,
     setChecklistTab,
     cycleTaskStatus,
@@ -73,14 +80,23 @@ export function WorkspaceClient() {
     generateAiSuggestions,
   } = useWorkspaceStore()
 
+  // Sincroniza plano via parâmetro de rota se fornecido
+  React.useEffect(() => {
+    if (planId && activePlan?.id !== planId) {
+      selectPlan(planId)
+    }
+  }, [planId, activePlan?.id, selectPlan])
+
   const [newTaskTitle, setNewTaskTitle] = React.useState("")
-  const [newTaskDate, setNewTaskDate] = React.useState("2026-11-30")
+  const [customTaskDate, setCustomTaskDate] = React.useState<string | null>(null)
+  const newTaskDate = customTaskDate ?? activePlan?.movingDate ?? "2026-12-15"
   const newTaskInputRef = React.useRef<HTMLInputElement>(null)
 
   const pendingTasksCount =
-    activePlan.inProgressTasks + activePlan.todoTasks
+    (activePlan?.inProgressTasks ?? 0) + (activePlan?.todoTasks ?? 0)
 
   const visibleTasks = React.useMemo(() => {
+    if (!activePlan) return []
     let list = activePlan.tasks
     if (checklistTab === "pending") {
       list = list.filter((t) => t.status !== "DONE")
@@ -89,11 +105,11 @@ export function WorkspaceClient() {
       list = list.filter((t) => t.status === "IN_PROGRESS")
     }
     return list
-  }, [activePlan.tasks, checklistTab, quickFilter])
+  }, [activePlan, checklistTab, quickFilter])
 
-  const selectedSuggestions = activePlan.copilotSuggestions.filter(
-    (s) => s.selected
-  )
+  const selectedSuggestions = React.useMemo(() => {
+    return activePlan?.copilotSuggestions.filter((s) => s.selected) ?? []
+  }, [activePlan?.copilotSuggestions])
 
   async function handleAddQuickTask(e: React.FormEvent) {
     e.preventDefault()
@@ -104,7 +120,51 @@ export function WorkspaceClient() {
     const added = await addQuickTask(newTaskTitle, newTaskDate)
     if (added) {
       setNewTaskTitle("")
+      setCustomTaskDate(null)
     }
+  }
+
+  // Estado de Carregamento Inicial
+  if (isLoadingPlans && !activePlan) {
+    return (
+      <main className="flex grow items-center justify-center bg-canvas p-12">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="size-8 animate-spin text-primary" />
+          <span className="font-sans text-sm font-semibold text-ink-muted">
+            Carregando workspace do plano...
+          </span>
+        </div>
+      </main>
+    )
+  }
+
+  // Estado Vazio (Sem planos cadastrados)
+  if (!activePlan) {
+    return (
+      <main className="flex grow flex-col items-center justify-center gap-6 bg-canvas p-12 text-center">
+        <div className="flex size-16 items-center justify-center rounded-2xl border-[1.8px] border-primary bg-primary-soft">
+          <HeroHouseCheckIcon />
+        </div>
+        <div className="flex max-w-md flex-col gap-2">
+          <h2 className="font-display text-2xl font-bold text-ink">
+            Nenhum plano encontrado
+          </h2>
+          <p className="font-sans text-sm text-ink-muted">
+            Você ainda não possui planos de mudança cadastrados ou o plano selecionado não existe.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => router.push("/")}>
+            <ArrowLeft className="mr-2 size-4" />
+            Voltar ao Dashboard
+          </Button>
+          <Button variant="default" onClick={() => router.push("/novo-plano")}>
+            <Plus className="mr-2 size-4 text-icon-mint" />
+            Criar Novo Plano
+          </Button>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -112,9 +172,12 @@ export function WorkspaceClient() {
       {/* Topbar: Breadcrumb + Gatilhos */}
       <header className="flex w-full flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="font-sans text-[13px] leading-sm font-semibold text-ink-muted">
-            Meus Planos de Mudança
-          </span>
+          <Link
+            href="/"
+            className="font-sans text-[13px] leading-sm font-semibold text-ink-muted hover:text-ink"
+          >
+            Dashboard
+          </Link>
           <span className="font-sans text-[13px] leading-sm font-semibold text-ink-muted">
             /
           </span>
@@ -396,7 +459,7 @@ export function WorkspaceClient() {
                 value={newTaskDate}
                 maxDate={activePlan.movingDate}
                 invalid={newTaskDate > activePlan.movingDate}
-                onChange={setNewTaskDate}
+                onChange={setCustomTaskDate}
                 ariaLabel="Prazo da nova tarefa"
               />
               <button
