@@ -180,3 +180,126 @@ export const CloudIcon = createDuotoneIcon("CloudIcon", 64, { tone: "neutral", s
     <path d="M36 46V56" stroke={S} strokeWidth="2" />
   </>
 ))
+
+/* ── Ícones das Telas & Fluxos (Sidebar, Checklist, Hero, Status) ──── */
+
+export const BrandLogoIcon = createDuotoneIcon("BrandLogoIcon", 40, { tone: "green", size: 28 }, (
+  <>
+    <path d="M8 18L20 8L32 18V32H8V18Z" fill={P} stroke={S} strokeWidth="2" strokeLinejoin="round" />
+    <path d="M16 32V22C16 19.8 17.8 18 20 18C22.2 18 24 19.8 24 22V32H16Z" fill={F} stroke={S} strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="29" cy="11" r="4" fill={F} stroke={S} strokeWidth="1.8" />
+  </>
+))
+
+export const SidebarPlanHomeIcon = createDuotoneIcon("SidebarPlanHomeIcon", 32, { tone: "green", size: 24 }, (
+  <>
+    <path d="M6 15L16 7L26 15V26H6V15Z" fill={B} stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M13 26V18C13 16.3 14.3 15 16 15C17.7 15 19 16.3 19 18V26H13Z" fill={F} stroke={S} strokeWidth="1.8" />
+  </>
+))
+
+export const SidebarPlanDocIcon = createDuotoneIcon("SidebarPlanDocIcon", 36, { tone: "pink", size: 32 }, (
+  <>
+    <rect x="8" y="6" width="20" height="24" rx="3" fill={P} stroke={S} strokeWidth="1.8" />
+    <path d="M13 13H23M13 18H20" stroke={S} strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="24" cy="24" r="5" fill={F} stroke={S} strokeWidth="1.8" />
+  </>
+))
+
+export const SidebarPlanBoxIcon = createDuotoneIcon("SidebarPlanBoxIcon", 36, { tone: "neutral", size: 32 }, (
+  <>
+    <path d="M8 14L18 9L28 14V25L18 30L8 25V14Z" fill={P} stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M13 11.5L23 16.5V22.5L18 25V16.5L13 11.5Z" fill="var(--color-surface-subtle)" stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+  </>
+))
+
+export const HeroHouseCheckIcon = createDuotoneIcon("HeroHouseCheckIcon", 84, { tone: "green", size: 84 }, (
+  <>
+    <path d="M16 40L42 18L68 40V68C68 70.2 66.2 72 64 72H20C17.8 72 16 70.2 16 68V40Z" fill={F} stroke={S} strokeWidth="2.2" strokeLinejoin="round" />
+    <path d="M10 43L42 16L74 43" stroke={S} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="33" y="46" width="18" height="26" rx="4" fill={P} stroke={S} strokeWidth="2.2" />
+    <circle cx="46" cy="59" r="2" fill={S} />
+    <circle cx="62" cy="24" r="10" fill={P} stroke={S} strokeWidth="2.2" />
+    <path d="M58 24L61 27L66 21" stroke={S} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const TaskDocCheckIcon = createDuotoneIcon("TaskDocCheckIcon", 38, { tone: "green", size: 38 }, (
+  <>
+    <rect x="6" y="5" width="26" height="28" rx="5" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M13 19L17 23L25 14" stroke={S} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const TaskCircleCheckIcon = createDuotoneIcon("TaskCircleCheckIcon", 38, { tone: "green", size: 38 }, (
+  <>
+    <circle cx="19" cy="19" r="14" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M13 19L17 23L25 14" stroke={S} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const TaskTruckIcon = createDuotoneIcon("TaskTruckIcon", 38, { tone: "pink", size: 38 }, (
+  <>
+    <rect x="4" y="11" width="20" height="15" rx="3" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M24 15H29L33 20V26H24V15Z" fill={P} stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+    <circle cx="11" cy="27" r="3.5" fill={P} stroke={S} strokeWidth="1.8" />
+    <circle cx="28" cy="27" r="3.5" fill={P} stroke={S} strokeWidth="1.8" />
+  </>
+))
+
+export const TaskBoxIcon = createDuotoneIcon("TaskBoxIcon", 38, { tone: "pink", size: 38 }, (
+  <>
+    <path d="M7 14L19 8L31 14V26L19 32L7 26V14Z" fill={F} stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M7 14L19 20L31 14M19 20V32" stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+  </>
+))
+
+export const TaskKeyIcon = createDuotoneIcon("TaskKeyIcon", 38, { tone: "neutral", size: 38 }, (
+  <>
+    <circle cx="15" cy="19" r="7" fill={P} stroke={S} strokeWidth="1.8" />
+    <circle cx="15" cy="19" r="2.5" fill={S} />
+    <path d="M22 19H32M29 19V24M32 19V23" stroke={S} strokeWidth="1.8" strokeLinecap="round" />
+  </>
+))
+
+export const TaskInspectIcon = createDuotoneIcon("TaskInspectIcon", 38, { tone: "neutral", size: 38 }, (
+  <>
+    <rect x="6" y="7" width="26" height="24" rx="5" fill={P} stroke={S} strokeWidth="1.8" />
+    <path d="M12 23L26 15M26 15H19M26 15V22" stroke={S} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const CopilotSparkleBadgeIcon = createDuotoneIcon("CopilotSparkleBadgeIcon", 32, { tone: "purple", size: 32 }, (
+  <>
+    <path d="M16 3L19.5 12.5L29 16L19.5 19.5L16 29L12.5 19.5L3 16L12.5 12.5L16 3Z" fill={F} stroke={S} strokeWidth="1.8" strokeLinejoin="round" />
+    <circle cx="24" cy="7" r="2.5" fill={P} stroke={S} strokeWidth="1.6" />
+  </>
+))
+
+export const SuggestionCheckCircleIcon = createDuotoneIcon("SuggestionCheckCircleIcon", 24, { tone: "purple", size: 24 }, (
+  <>
+    <circle cx="12" cy="12" r="9.5" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M8 12L10.8 14.8L16 9.5" stroke={S} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const StatusDoneCircleIcon = createDuotoneIcon("StatusDoneCircleIcon", 24, { tone: "green", size: 24 }, (
+  <>
+    <circle cx="12" cy="12" r="9.5" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M8 12L10.8 14.8L16 9.5" stroke={S} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const StatusActiveClockIcon = createDuotoneIcon("StatusActiveClockIcon", 24, { tone: "pink", size: 24 }, (
+  <>
+    <circle cx="12" cy="12" r="9.5" fill={F} stroke={S} strokeWidth="1.8" />
+    <path d="M12 7.5V12L15 14" stroke={S} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+))
+
+export const StatusTodoDotIcon = createDuotoneIcon("StatusTodoDotIcon", 24, { tone: "neutral", size: 24 }, (
+  <>
+    <circle cx="12" cy="12" r="9.5" fill={P} stroke={S} strokeWidth="1.8" />
+    <circle cx="12" cy="12" r="3" fill={S} />
+  </>
+))

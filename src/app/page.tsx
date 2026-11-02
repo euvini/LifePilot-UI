@@ -1,7 +1,11 @@
-import { redirect } from "next/navigation"
+import type { Metadata } from "next"
 
-/* Temporário: enquanto as telas (Paper · "02 · Telas & Fluxos") não são
-   implementadas, a raiz aponta para a referência viva do Design System. */
-export default function Home() {
-  redirect("/design-system")
+import { WorkspaceClient } from "@/components/workspace/workspace-client"
+
+export const metadata: Metadata = {
+  title: "Workspace & Copiloto IA",
+}
+
+export default function HomePage() {
+  return <WorkspaceClient />
 }
