@@ -1,0 +1,105 @@
+/*
+ * LifePilot AI — Design System v1.0 "Botanical Calm"
+ *
+ * Fonte da verdade: Paper → arquivo "LifePilot AI" (01M61MD1EZJNQHVB7GVCTX4MZ7),
+ * página "01 · Design System". Tokens sincronizados via Paper MCP (get_tokens).
+ *
+ * Os nomes seguem EXATAMENTE os tokens do Paper, para que o JSX exportado com
+ * `get_jsx({ format: "tailwind" })` (ex.: `bg-canvas text-ink text-xs/xs`)
+ * funcione sem tradução. Ao alterar um token no Paper, atualize aqui.
+ *
+ * `--color-primary` e `--color-border` são definidos em globals.css via as
+ * variáveis semânticas do shadcn (`--primary`, `--border`), com os mesmos valores.
+ */
+
+@theme {
+  /* ── Cores · Superfícies ─────────────────────────────────────────── */
+  --color-canvas: #ede6d9; /* Warm Sand Canvas */
+  --color-surface: #f7f7ef; /* Cream Surface */
+  --color-surface-subtle: #e2d9c8; /* Nested Sand */
+  --color-border-strong: #c4b8a3;
+
+  /* ── Cores · Texto ───────────────────────────────────────────────── */
+  --color-ink: #161616; /* Pure Ink */
+  --color-ink-secondary: #4a4740;
+  --color-ink-muted: #757065;
+
+  /* ── Cores · Marca ───────────────────────────────────────────────── */
+  --color-primary-strong: #042619;
+  --color-primary-soft: #f1fcd9;
+  --color-icon-mint: #c8f963; /* Main Acid Lime */
+  --color-accent-ai: #9b6bff; /* Main Purple IA */
+  --color-accent-ai-soft: #efeaff;
+  --color-purple-stroke: #1f0f53;
+  --color-pink-main: #ff6b8b;
+  --color-pink-stroke: #5a102a;
+
+  /* ── Cores · Feedback ────────────────────────────────────────────── */
+  --color-success: #1f5e4b;
+  --color-warning: #b45727;
+  --color-danger: #5a102a; /* Dark Magenta */
+  --color-danger-soft: #fdf0f3;
+
+  /* ── Tipografia · Escala (px) com line-height padrão ─────────────── */
+  --text-xs: 11px;
+  --text-xs--line-height: 14px;
+  --text-sm: 12px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 20px;
+  --text-lg--line-height: 24px;
+  --text-xl: 28px;
+  --text-xl--line-height: 34px;
+  --text-2xl: 36px;
+  --text-2xl--line-height: 42px;
+
+  /* ── Tipografia · Line-height (uso: text-sm/sm, leading-base…) ───── */
+  --leading-xs: 14px;
+  --leading-sm: 18px;
+  --leading-base: 20px;
+  --leading-md: 24px;
+  --leading-xl: 34px;
+  --leading-2xl: 42px;
+
+  /* ── Tipografia · Pesos ──────────────────────────────────────────── */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* ── Tipografia · Tracking ───────────────────────────────────────── */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.06em;
+
+  /* ── Raios ───────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+  --radius-4xl: 32px;
+  --radius-full: 999px;
+
+  /* ── Layout ──────────────────────────────────────────────────────── */
+  --breakpoint-mobile: 390px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1440px;
+
+  --container-sm: 420px;
+  --container-md: 680px;
+  --container-xl: 1280px;
+
+  /* Espaçamento: a escala do Paper (4px · 8 · 12 · 16 · 20 · 24 · 32 · 48)
+     coincide com a escala nativa do Tailwind (--spacing: 0.25rem). */
+}
+
+:root {
+  --opacity-muted: 40%;
+  --opacity-preview: 85%;
+}
