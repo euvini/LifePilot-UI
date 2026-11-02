@@ -115,6 +115,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify(dto),
       }),
+    delete: (id: string) =>
+      request<void>(`moving-plans/${id}`, {
+        method: "DELETE",
+      }),
   },
 
   tasks: {

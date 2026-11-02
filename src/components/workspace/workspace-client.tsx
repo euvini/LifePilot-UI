@@ -27,8 +27,9 @@ import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, RefreshCw } from "lucide-react"
+import { ArrowLeft, Plus, RefreshCw, Trash2 } from "lucide-react"
 
+import { DeletePlanDialog } from "@/components/plans/delete-plan-dialog"
 import { useWorkspaceStore } from "@/context/workspace-store"
 import type { TaskIconKey, TaskStatus } from "@/types/plan"
 
@@ -239,6 +240,22 @@ export function WorkspaceClient({ planId }: { planId?: string } = {}) {
             </svg>
             Nova Tarefa Manual
           </Button>
+
+          <DeletePlanDialog
+            planId={activePlan.id}
+            planTitle={activePlan.title}
+            onDeleted={() => router.push("/")}
+            trigger={
+              <Button
+                variant="destructive"
+                className="h-[42px] gap-2 px-3.5 text-[13px] leading-sm"
+                title="Excluir este plano de mudança"
+              >
+                <Trash2 className="size-4" />
+                <span className="hidden tablet:inline">Excluir Plano</span>
+              </Button>
+            }
+          />
         </div>
       </header>
 

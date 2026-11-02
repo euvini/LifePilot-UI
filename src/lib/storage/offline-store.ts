@@ -25,6 +25,12 @@ export type OutboxMutation =
     }
   | {
       id: string
+      type: "deletePlan"
+      planId: string
+      timestamp: number
+    }
+  | {
+      id: string
       type: "createTask"
       planId: string
       payload: CreateTaskDto
@@ -78,6 +84,33 @@ export const offlineStore = {
       this.setTimestamp("plans")
     } catch {
       // Storage cheio ou desabilitado
+    }
+  },
+
+  removePlan(planId: string): void {
+    if (!isBrowser()) return
+    try {
+      const current = this.getPlans() ?? []
+      const filtered = current.filter((p) => p.id !== planId)
+      this.setPlans(filtered)
+
+      // Limpa tarefas cacheadas do plano
+      const rawTasks = localStorage.getItem(STORAGE_KEYS.TASKS)
+      if (rawTasks) {
+        const map = JSON.parse(rawTasks) as Record<string, TaskItem[]>
+        delete map[planId]
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(map))
+      }
+
+      // Limpa sugestões cacheadas do plano
+      const rawSuggs = localStorage.getItem(STORAGE_KEYS.SUGGESTIONS)
+      if (rawSuggs) {
+        const map = JSON.parse(rawSuggs) as Record<string, unknown>
+        delete map[planId]
+        localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(map))
+      }
+    } catch {
+      // Storage
     }
   },
 
@@ -211,6 +244,9 @@ export const offlineStore = {
         if (mutation.type === "createPlan") {
           const res = await api.movingPlans.create(mutation.payload)
           planIdMap[mutation.tempPlanId] = res.id
+        } else if (mutation.type === "deletePlan") {
+          const targetPlanId = planIdMap[mutation.planId] || mutation.planId
+          await api.movingPlans.delete(targetPlanId)
         } else if (mutation.type === "createTask") {
           const targetPlanId = planIdMap[mutation.planId] || mutation.planId
           await api.tasks.create(targetPlanId, mutation.payload)

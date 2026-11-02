@@ -14,11 +14,13 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
   TrendingUp,
   Truck,
 } from "lucide-react"
 
 import { HeroHouseCheckIcon } from "@/components/icons/duotone"
+import { DeletePlanDialog } from "@/components/plans/delete-plan-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useWorkspaceStore } from "@/context/workspace-store"
@@ -443,12 +445,12 @@ export function DashboardView() {
                     </div>
                   </div>
 
-                  {/* Rodapé com Botão para Abrir Workspace */}
-                  <div className="mt-5 border-t border-border pt-4">
+                  {/* Rodapé com Botão para Abrir Workspace + Excluir */}
+                  <div className="mt-5 flex items-center gap-2 border-t border-border pt-4">
                     <Button
                       variant="outline"
                       size="default"
-                      className="w-full justify-between group-hover:border-primary group-hover:bg-primary-soft/30"
+                      className="grow justify-between group-hover:border-primary group-hover:bg-primary-soft/30"
                       onClick={() => router.push(`/planos/${plan.id}`)}
                     >
                       <span className="font-sans text-xs/xs font-bold text-ink">
@@ -456,6 +458,21 @@ export function DashboardView() {
                       </span>
                       <ArrowRight className="size-4 text-primary transition-transform group-hover:translate-x-1" />
                     </Button>
+
+                    <DeletePlanDialog
+                      planId={plan.id}
+                      planTitle={plan.title}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Excluir este plano de mudança"
+                          className="size-10 shrink-0 text-ink-muted hover:border-danger hover:bg-danger-soft hover:text-danger"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      }
+                    />
                   </div>
                 </div>
               ))}

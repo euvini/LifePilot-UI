@@ -51,6 +51,7 @@ interface WorkspaceStoreValue {
   discardSuggestions: () => void
   generateAiSuggestions: (maxSuggestions?: number) => Promise<void>
   createNewPlan: (dto: CreateMovingPlanDto) => Promise<MovingPlan>
+  deletePlan: (planId: string) => Promise<boolean>
   refreshActivePlanTasks: () => Promise<void>
   refreshPlans: () => Promise<void>
 }
@@ -771,6 +772,46 @@ export function WorkspaceProvider({
     [plans.length]
   )
 
+  const deletePlan = React.useCallback(
+    async (planId: string): Promise<boolean> => {
+      // 1. Atualização Otimista
+      const remainingPlans = plans.filter((p) => p.id !== planId)
+      setPlans(remainingPlans)
+      offlineStore.removePlan(planId)
+
+      if (activePlanId === planId) {
+        setActivePlanId(remainingPlans.length > 0 ? remainingPlans[0].id : "")
+      }
+
+      toast.success("Plano de mudança excluído com sucesso.")
+
+      // 2. Persistência no Backend ou Outbox
+      try {
+        if (navigator.onLine) {
+          await api.movingPlans.delete(planId)
+        } else {
+          offlineStore.enqueueOutbox({
+            id: `outbox-${Date.now()}`,
+            type: "deletePlan",
+            planId,
+            timestamp: Date.now(),
+          })
+        }
+      } catch (err) {
+        console.warn("Falha ao excluir plano no backend, enfileirando outbox:", err)
+        offlineStore.enqueueOutbox({
+          id: `outbox-${Date.now()}`,
+          type: "deletePlan",
+          planId,
+          timestamp: Date.now(),
+        })
+      }
+
+      return true
+    },
+    [plans, activePlanId]
+  )
+
   const clearAiError = React.useCallback(() => setLastAiError(null), [])
 
   const value = React.useMemo<WorkspaceStoreValue>(
@@ -797,6 +838,7 @@ export function WorkspaceProvider({
       discardSuggestions,
       generateAiSuggestions,
       createNewPlan,
+      deletePlan,
       refreshActivePlanTasks,
       refreshPlans,
     }),
@@ -822,6 +864,7 @@ export function WorkspaceProvider({
       discardSuggestions,
       generateAiSuggestions,
       createNewPlan,
+      deletePlan,
       refreshActivePlanTasks,
       refreshPlans,
     ]

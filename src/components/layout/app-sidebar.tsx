@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "cn"
-import { LayoutDashboard } from "lucide-react"
+import { LayoutDashboard, Trash2 } from "lucide-react"
 
 import {
   BrandLogoIcon,
@@ -11,6 +11,7 @@ import {
   SidebarPlanDocIcon,
   SidebarPlanHomeIcon,
 } from "@/components/icons/duotone"
+import { DeletePlanDialog } from "@/components/plans/delete-plan-dialog"
 import {
   useWorkspaceStore,
   type QuickViewFilter,
@@ -165,37 +166,60 @@ export function AppSidebar() {
                 pathname === `/planos/${plan.id}` ||
                 (pathname?.startsWith("/planos") && activePlan?.id === plan.id)
               return (
-                <button
+                <div
                   key={plan.id}
-                  type="button"
-                  onClick={() => handleSelectPlan(plan.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 px-3.5 py-2.5 transition-colors",
-                    isActive
-                      ? "rounded-[16px] bg-primary"
-                      : "rounded-full bg-surface hover:bg-surface/80"
-                  )}
+                  className="group/plan flex w-full items-center gap-1.5"
                 >
-                  <PlanSidebarIcon type={plan.sidebarIcon} />
-                  <div className="flex grow basis-0 flex-col gap-0.5 text-left">
-                    <span
-                      className={cn(
-                        "font-sans text-[13px] leading-[17px] font-bold line-clamp-1",
-                        isActive ? "text-icon-mint" : "text-ink"
-                      )}
-                    >
-                      {plan.sidebarTitle}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-mono text-xs/xs",
-                        isActive ? "text-primary-soft" : "text-ink-secondary"
-                      )}
-                    >
-                      {plan.movingDate} · {plan.progress}%
-                    </span>
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPlan(plan.id)}
+                    className={cn(
+                      "flex min-w-0 grow basis-0 items-center gap-3 px-3.5 py-2.5 transition-colors",
+                      isActive
+                        ? "rounded-[16px] bg-primary"
+                        : "rounded-full bg-surface hover:bg-surface/80"
+                    )}
+                  >
+                    <PlanSidebarIcon type={plan.sidebarIcon} />
+                    <div className="flex grow basis-0 flex-col gap-0.5 text-left">
+                      <span
+                        className={cn(
+                          "font-sans text-[13px] leading-[17px] font-bold line-clamp-1",
+                          isActive ? "text-icon-mint" : "text-ink"
+                        )}
+                      >
+                        {plan.sidebarTitle}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-mono text-xs/xs",
+                          isActive ? "text-primary-soft" : "text-ink-secondary"
+                        )}
+                      >
+                        {plan.movingDate} · {plan.progress}%
+                      </span>
+                    </div>
+                  </button>
+
+                  <DeletePlanDialog
+                    planId={plan.id}
+                    planTitle={plan.title}
+                    onDeleted={() => {
+                      if (pathname === `/planos/${plan.id}`) {
+                        router.push("/")
+                      }
+                    }}
+                    trigger={
+                      <button
+                        type="button"
+                        title={`Excluir ${plan.sidebarTitle}`}
+                        className="hidden size-7 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-danger-soft hover:text-danger group-hover/plan:flex"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    }
+                  />
+                </div>
               )
             })
           )}
