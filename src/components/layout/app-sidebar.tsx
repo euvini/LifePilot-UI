@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "cn"
 
 import {
@@ -9,20 +10,13 @@ import {
   SidebarPlanDocIcon,
   SidebarPlanHomeIcon,
 } from "@/components/icons/duotone"
-import { INITIAL_MOVING_PLANS, type MovingPlan } from "@/lib/mock-data"
+import {
+  useWorkspaceStore,
+  type QuickViewFilter,
+} from "@/context/workspace-store"
+import { type MovingPlan } from "@/lib/mock-data"
 
-export type QuickViewFilter = "all" | "in_progress" | "ai"
-
-interface AppSidebarProps {
-  plans?: MovingPlan[]
-  activePlanId?: string
-  onSelectPlan?: (planId: string) => void
-  quickFilter?: QuickViewFilter
-  onQuickFilterChange?: (filter: QuickViewFilter) => void
-  totalTasksCount?: number
-  inProgressCount?: number
-  aiSuggestionsCount?: number
-}
+export type { QuickViewFilter }
 
 function PlanSidebarIcon({ type }: { type: MovingPlan["sidebarIcon"] }) {
   if (type === "home") {
@@ -38,27 +32,45 @@ function PlanSidebarIcon({ type }: { type: MovingPlan["sidebarIcon"] }) {
   return <SidebarPlanBoxIcon />
 }
 
-export function AppSidebar({
-  plans = INITIAL_MOVING_PLANS,
-  activePlanId = "mp-lisboa-302",
-  onSelectPlan,
-  quickFilter = "all",
-  onQuickFilterChange,
-  totalTasksCount,
-  inProgressCount,
-  aiSuggestionsCount,
-}: AppSidebarProps) {
-  const activePlan =
-    plans.find((p) => p.id === activePlanId) ?? plans[0]
+export function AppSidebar() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const {
+    plans,
+    activePlan,
+    quickFilter,
+    selectPlan,
+    setQuickFilter,
+    isOnline,
+    isSyncing,
+  } = useWorkspaceStore()
 
-  const allCount = totalTasksCount ?? activePlan.totalTasks
-  const activeCount = inProgressCount ?? activePlan.inProgressTasks
-  const suggestionsCount =
-    aiSuggestionsCount ?? activePlan.copilotSuggestions.length
+  // Oculta a sidebar na página de referência isolada do Design System
+  if (pathname?.startsWith("/design-system")) {
+    return null
+  }
+
+  const allCount = activePlan.totalTasks
+  const activeCount = activePlan.inProgressTasks
+  const suggestionsCount = activePlan.copilotSuggestions.length
+
+  function handleSelectPlan(planId: string) {
+    selectPlan(planId)
+    if (pathname !== "/") {
+      router.push("/")
+    }
+  }
+
+  function handleSelectQuickFilter(filter: QuickViewFilter) {
+    setQuickFilter(filter)
+    if (pathname !== "/") {
+      router.push("/")
+    }
+  }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col justify-between gap-6 border-r border-border bg-surface-subtle px-5 py-7">
-      <div className="flex flex-col gap-6">
+    <aside className="sticky top-0 flex h-dvh max-h-dvh w-72 shrink-0 flex-col justify-between gap-5 overflow-y-auto border-r border-border bg-surface-subtle px-5 py-7">
+      <div className="flex flex-col gap-5">
         {/* Cabeçalho da marca */}
         <div className="flex items-center justify-between px-1">
           <Link href="/" className="flex items-center gap-3">
@@ -74,14 +86,32 @@ export function AppSidebar({
               </span>
             </div>
           </Link>
-          <span
-            title="API Online"
-            className="size-2.5 shrink-0 rounded-full border-[1.5px] border-primary bg-icon-mint"
-          />
+          <div className="flex items-center gap-1.5">
+            <span
+              title={
+                isOnline
+                  ? isSyncing
+                    ? "Sincronizando com o servidor..."
+                    : "API Online"
+                  : "Modo Offline (dados salvos localmente)"
+              }
+              className={cn(
+                "size-2.5 shrink-0 rounded-full border-[1.5px] transition-colors",
+                isOnline
+                  ? isSyncing
+                    ? "animate-pulse border-purple-stroke bg-accent-ai"
+                    : "border-primary bg-icon-mint"
+                  : "border-danger bg-pink-main"
+              )}
+            />
+            <span className="font-mono text-[10px] font-semibold text-ink-muted">
+              {isOnline ? (isSyncing ? "SYNC" : "ONLINE") : "OFFLINE"}
+            </span>
+          </div>
         </div>
 
         {/* Lista de planos */}
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-1.5">
             <span className="font-mono text-xs/xs font-bold text-ink-secondary uppercase">
               MEUS PLANOS ({plans.length})
@@ -93,8 +123,18 @@ export function AppSidebar({
 
           {plans.map((plan) => {
             const isActive = plan.id === activePlan.id
-            const content = (
-              <>
+            return (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => handleSelectPlan(plan.id)}
+                className={cn(
+                  "flex w-full items-center gap-3 px-3.5 py-2.5 transition-colors",
+                  isActive
+                    ? "rounded-[16px] bg-primary"
+                    : "rounded-full bg-surface hover:bg-surface/80"
+                )}
+              >
                 <PlanSidebarIcon type={plan.sidebarIcon} />
                 <div className="flex grow basis-0 flex-col gap-0.5 text-left">
                   <span
@@ -114,37 +154,7 @@ export function AppSidebar({
                     {plan.movingDate} · {plan.progress}%
                   </span>
                 </div>
-              </>
-            )
-
-            const itemClasses = cn(
-              "flex w-full items-center gap-3 px-3.5 py-3 transition-colors",
-              isActive
-                ? "rounded-[16px] bg-primary"
-                : "rounded-full bg-surface hover:bg-surface/80"
-            )
-
-            if (onSelectPlan) {
-              return (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => onSelectPlan(plan.id)}
-                  className={itemClasses}
-                >
-                  {content}
-                </button>
-              )
-            }
-
-            return (
-              <Link
-                key={plan.id}
-                href={`/?plan=${plan.id}`}
-                className={itemClasses}
-              >
-                {content}
-              </Link>
+              </button>
             )
           })}
         </div>
@@ -159,10 +169,10 @@ export function AppSidebar({
 
           <button
             type="button"
-            onClick={() => onQuickFilterChange?.("all")}
+            onClick={() => handleSelectQuickFilter("all")}
             className={cn(
-              "flex items-center justify-between rounded-full border-[1.5px] border-ink bg-surface px-4 py-2.5 transition-transform",
-              quickFilter === "all" && "ring-2 ring-ink/15"
+              "flex items-center justify-between rounded-full border-[1.5px] border-ink bg-surface px-4 py-2 transition-transform",
+              quickFilter === "all" && pathname === "/" && "ring-2 ring-ink/15"
             )}
           >
             <span className="font-sans text-[13px] leading-sm font-bold text-ink">
@@ -175,10 +185,12 @@ export function AppSidebar({
 
           <button
             type="button"
-            onClick={() => onQuickFilterChange?.("in_progress")}
+            onClick={() => handleSelectQuickFilter("in_progress")}
             className={cn(
-              "flex items-center justify-between rounded-full border-[1.5px] border-danger bg-danger-soft px-4 py-2.5 transition-transform",
-              quickFilter === "in_progress" && "ring-2 ring-danger/20"
+              "flex items-center justify-between rounded-full border-[1.5px] border-danger bg-danger-soft px-4 py-2 transition-transform",
+              quickFilter === "in_progress" &&
+                pathname === "/" &&
+                "ring-2 ring-danger/20"
             )}
           >
             <span className="font-sans text-[13px] leading-sm font-bold text-danger">
@@ -191,10 +203,12 @@ export function AppSidebar({
 
           <button
             type="button"
-            onClick={() => onQuickFilterChange?.("ai")}
+            onClick={() => handleSelectQuickFilter("ai")}
             className={cn(
-              "flex items-center justify-between rounded-full border-[1.5px] border-purple-stroke bg-accent-ai-soft px-4 py-2.5 transition-transform",
-              quickFilter === "ai" && "ring-2 ring-accent-ai/30"
+              "flex items-center justify-between rounded-full border-[1.5px] border-purple-stroke bg-accent-ai-soft px-4 py-2 transition-transform",
+              quickFilter === "ai" &&
+                pathname === "/" &&
+                "ring-2 ring-accent-ai/30"
             )}
           >
             <span className="font-sans text-[13px] leading-sm font-bold text-purple-stroke">
@@ -208,7 +222,7 @@ export function AppSidebar({
       </div>
 
       {/* Rodapé: Countdown + Botão Novo Plano */}
-      <div className="flex flex-col gap-3.5 border-t border-border pt-4">
+      <div className="flex flex-col gap-3 border-t border-border pt-3.5">
         <div className="flex flex-col gap-2 rounded-[16px] border-[1.5px] border-border bg-surface-subtle p-3.5">
           <div className="flex items-center justify-between">
             <span className="font-sans text-xs/xs font-bold tracking-[0.05em] text-ink-secondary uppercase">
@@ -231,7 +245,10 @@ export function AppSidebar({
 
         <Link
           href="/novo-plano"
-          className="flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-full border-[1.8px] border-primary bg-primary transition-colors hover:bg-primary-strong"
+          className={cn(
+            "flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-full border-[1.8px] border-primary bg-primary transition-colors hover:bg-primary-strong",
+            pathname?.startsWith("/novo-plano") && "ring-2 ring-primary/30"
+          )}
         >
           <svg
             width="18"

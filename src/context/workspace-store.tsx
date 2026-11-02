@@ -1,0 +1,826 @@
+"use client"
+
+import * as React from "react"
+import { toast } from "sonner"
+
+import { api, ApiError } from "@/lib/api/client"
+import type { CreateMovingPlanDto } from "@/lib/api/types"
+import {
+  INITIAL_MOVING_PLANS,
+  type CopilotSuggestion,
+  type MovingPlan,
+  type TaskItem,
+  type TaskStatus,
+} from "@/lib/mock-data"
+import {
+  mapBackendPlanToUi,
+  mapBackendTaskToItem,
+} from "@/lib/storage/mappers"
+import {
+  offlineStore,
+  type OutboxMutation,
+} from "@/lib/storage/offline-store"
+
+export type QuickViewFilter = "all" | "in_progress" | "ai"
+
+const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
+  TODO: "IN_PROGRESS",
+  IN_PROGRESS: "DONE",
+  DONE: "TODO",
+}
+
+interface WorkspaceStoreValue {
+  plans: MovingPlan[]
+  activePlanId: string
+  activePlan: MovingPlan
+  quickFilter: QuickViewFilter
+  checklistTab: "all" | "pending"
+  isGeneratingAi: boolean
+  isOnline: boolean
+  isSyncing: boolean
+  lastAiError: ApiError | null
+  clearAiError: () => void
+  selectPlan: (planId: string) => void
+  setQuickFilter: (filter: QuickViewFilter) => void
+  setChecklistTab: (tab: "all" | "pending") => void
+  cycleTaskStatus: (taskId: string) => Promise<void>
+  addQuickTask: (title: string, dueDate: string) => Promise<boolean>
+  deleteTask: (taskId: string) => Promise<void>
+  toggleSuggestion: (suggestionId: string) => void
+  acceptSuggestionsBatch: () => Promise<void>
+  discardSuggestions: () => void
+  generateAiSuggestions: (maxSuggestions?: number) => Promise<void>
+  createNewPlan: (dto: CreateMovingPlanDto) => Promise<MovingPlan>
+  refreshActivePlanTasks: () => Promise<void>
+}
+
+const WorkspaceStoreContext = React.createContext<WorkspaceStoreValue | null>(
+  null
+)
+
+export function WorkspaceProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [plans, setPlans] = React.useState<MovingPlan[]>(() => {
+    const cached = offlineStore.getPlans()
+    return cached && cached.length > 0 ? cached : INITIAL_MOVING_PLANS
+  })
+
+  const [activePlanId, setActivePlanId] = React.useState<string>(() => {
+    const cached = offlineStore.getPlans()
+    return cached && cached.length > 0 ? cached[0].id : "mp-lisboa-302"
+  })
+
+  const [quickFilter, setQuickFilterState] =
+    React.useState<QuickViewFilter>("all")
+  const [checklistTab, setChecklistTab] = React.useState<"all" | "pending">(
+    "all"
+  )
+  const [isGeneratingAi, setIsGeneratingAi] = React.useState(false)
+  const [isOnline, setIsOnline] = React.useState<boolean>(() => {
+    return typeof window !== "undefined" ? navigator.onLine : true
+  })
+  const [isSyncing, setIsSyncing] = React.useState(false)
+  const [lastAiError, setLastAiError] = React.useState<ApiError | null>(null)
+
+  const activePlan = React.useMemo(() => {
+    return plans.find((p) => p.id === activePlanId) ?? plans[0]
+  }, [plans, activePlanId])
+
+  // Sincroniza fila de outbox pendente
+  const syncOutbox = React.useCallback(async () => {
+    const queue = offlineStore.getOutbox()
+    if (queue.length === 0) return
+
+    setIsSyncing(true)
+    const { processed, failed } = await offlineStore.flushOutbox()
+    setIsSyncing(false)
+
+    if (processed > 0) {
+      toast.success(
+        `${processed} alteraç${processed === 1 ? "ão" : "ões"} offline sincronizada(s) com o servidor.`
+      )
+    }
+    if (failed > 0) {
+      toast.error(
+        `Falha ao sincronizar ${failed} item(ns) offline. Tentaremos novamente em instantes.`
+      )
+    }
+  }, [])
+
+  // Monitoramento de conectividade (online / offline)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const handleOnline = () => {
+      setIsOnline(true)
+      toast.success("Conexão restabelecida. Sincronizando dados...")
+      void syncOutbox()
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false)
+      toast.warning("Você está offline. As alterações serão salvas localmente.")
+    }
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    // Healthcheck ping silencioso
+    api.health
+      .check()
+      .then(() => setIsOnline(true))
+      .catch(() => {
+        // Se backend não responder, não impede uso offline
+      })
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [syncOutbox])
+
+  // Carrega planos do backend se online e cache estiver stale
+  React.useEffect(() => {
+    let isMounted = true
+
+    async function loadPlans() {
+      if (!navigator.onLine) return
+
+      try {
+        if (!offlineStore.isStale("plans")) {
+          return
+        }
+
+        const backendPlans = await api.movingPlans.list()
+        if (!isMounted) return
+
+        if (Array.isArray(backendPlans) && backendPlans.length > 0) {
+          const mapped = backendPlans.map((bp, idx) => {
+            const cachedTasks = offlineStore.getTasks(bp.id) ?? []
+            const cachedSuggs = offlineStore.getSuggestions(bp.id) ?? []
+            const uiPlan = mapBackendPlanToUi(bp, cachedTasks, idx)
+            uiPlan.copilotSuggestions = cachedSuggs
+            return uiPlan
+          })
+
+          setPlans(mapped)
+          offlineStore.setPlans(mapped)
+
+          // Garante activePlanId válido
+          if (!mapped.some((p) => p.id === activePlanId)) {
+            setActivePlanId(mapped[0].id)
+          }
+        }
+      } catch {
+        // Falha silenciosa: mantém dados do cache/seed
+      }
+    }
+
+    void loadPlans()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activePlanId])
+
+  // Sincroniza tarefas do plano ativo de forma assíncrona
+  React.useEffect(() => {
+    let isMounted = true
+
+    async function syncActiveTasks() {
+      if (!activePlanId || !navigator.onLine) return
+      if (!offlineStore.isStale(`tasks:${activePlanId}`)) return
+
+      try {
+        setIsSyncing(true)
+        const backendTasks = await api.tasks.list(activePlanId)
+        if (!isMounted) return
+
+        const mappedTasks = backendTasks.map(mapBackendTaskToItem)
+        offlineStore.setTasks(activePlanId, mappedTasks)
+
+        setPlans((prev) =>
+          prev.map((p) => {
+            if (p.id !== activePlanId) return p
+            const total = mappedTasks.length
+            const completed = mappedTasks.filter((t) => t.status === "DONE").length
+            const inProgress = mappedTasks.filter((t) => t.status === "IN_PROGRESS").length
+            const todo = mappedTasks.filter((t) => t.status === "TODO").length
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+            return {
+              ...p,
+              tasks: mappedTasks,
+              totalTasks: total,
+              completedTasks: completed,
+              inProgressTasks: inProgress,
+              todoTasks: todo,
+              progress,
+            }
+          })
+        )
+      } catch {
+        // Mantém cache
+      } finally {
+        if (isMounted) {
+          setIsSyncing(false)
+        }
+      }
+    }
+
+    void syncActiveTasks()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activePlanId])
+
+  // Recarga manual forçada sob demanda
+  const refreshActivePlanTasks = React.useCallback(async () => {
+    if (!activePlanId || !navigator.onLine) return
+
+    try {
+      setIsSyncing(true)
+      const backendTasks = await api.tasks.list(activePlanId)
+      const mappedTasks = backendTasks.map(mapBackendTaskToItem)
+      offlineStore.setTasks(activePlanId, mappedTasks)
+
+      setPlans((prev) =>
+        prev.map((p) => {
+          if (p.id !== activePlanId) return p
+          const total = mappedTasks.length
+          const completed = mappedTasks.filter((t) => t.status === "DONE").length
+          const inProgress = mappedTasks.filter((t) => t.status === "IN_PROGRESS").length
+          const todo = mappedTasks.filter((t) => t.status === "TODO").length
+          const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+          return {
+            ...p,
+            tasks: mappedTasks,
+            totalTasks: total,
+            completedTasks: completed,
+            inProgressTasks: inProgress,
+            todoTasks: todo,
+            progress,
+          }
+        })
+      )
+    } catch {
+      // Ignora falha de rede
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [activePlanId])
+
+  const selectPlan = React.useCallback((planId: string) => {
+    setActivePlanId(planId)
+    setQuickFilterState("all")
+    setChecklistTab("all")
+  }, [])
+
+  const setQuickFilter = React.useCallback((filter: QuickViewFilter) => {
+    setQuickFilterState(filter)
+    if (filter === "in_progress") {
+      setChecklistTab("pending")
+    } else {
+      setChecklistTab("all")
+    }
+  }, [])
+
+  // Atualização otimista de status da tarefa + persistência + chamada backend / outbox
+  const cycleTaskStatus = React.useCallback(
+    async (taskId: string) => {
+      const currentTask = activePlan.tasks.find((t) => t.id === taskId)
+      if (!currentTask) return
+
+      const nextStatus = NEXT_STATUS[currentTask.status]
+
+      // 1. Atualização Otimista no Estado
+      const updatedTasks = activePlan.tasks.map((task) => {
+        if (task.id !== taskId) return task
+        return {
+          ...task,
+          status: nextStatus,
+          icon: nextStatus === "DONE" ? ("circle-check" as const) : task.icon,
+        }
+      })
+
+      const total = updatedTasks.length
+      const completed = updatedTasks.filter((t) => t.status === "DONE").length
+      const inProgress = updatedTasks.filter((t) => t.status === "IN_PROGRESS").length
+      const todo = updatedTasks.filter((t) => t.status === "TODO").length
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+      const updatedPlan: MovingPlan = {
+        ...activePlan,
+        tasks: updatedTasks,
+        completedTasks: completed,
+        inProgressTasks: inProgress,
+        todoTasks: todo,
+        progress,
+      }
+
+      setPlans((prev) => prev.map((p) => (p.id === activePlan.id ? updatedPlan : p)))
+      offlineStore.setTasks(activePlan.id, updatedTasks)
+
+      // 2. Persistência no Backend ou Fila Outbox
+      try {
+        if (navigator.onLine) {
+          await api.tasks.update(activePlan.id, taskId, { status: nextStatus })
+        } else {
+          const mutation: OutboxMutation = {
+            id: `outbox-${Date.now()}`,
+            type: "updateTask",
+            planId: activePlan.id,
+            taskId,
+            payload: { status: nextStatus },
+            timestamp: Date.now(),
+          }
+          offlineStore.enqueueOutbox(mutation)
+        }
+      } catch (err) {
+        console.warn("Erro ao salvar status no backend, enfileirando outbox:", err)
+        const mutation: OutboxMutation = {
+          id: `outbox-${Date.now()}`,
+          type: "updateTask",
+          planId: activePlan.id,
+          taskId,
+          payload: { status: nextStatus },
+          timestamp: Date.now(),
+        }
+        offlineStore.enqueueOutbox(mutation)
+      }
+    },
+    [activePlan]
+  )
+
+  // Criação de tarefa rápida
+  const addQuickTask = React.useCallback(
+    async (title: string, dueDate: string): Promise<boolean> => {
+      const trimmed = title.trim()
+      if (!trimmed) return false
+
+      if (dueDate && dueDate > activePlan.movingDate) {
+        toast.error(
+          `Prazo inválido (${dueDate}): não pode ser posterior à data da mudança (${activePlan.movingDate}).`
+        )
+        return false
+      }
+
+      const tempId = `temp-${Date.now()}`
+      const newTask: TaskItem = {
+        id: tempId,
+        title: trimmed,
+        description: "Tarefa adicionada manualmente ao checklist do plano",
+        dueDate,
+        status: "TODO",
+        icon: "inspect",
+      }
+
+      // Otimista
+      const updatedTasks = [newTask, ...activePlan.tasks]
+      const total = updatedTasks.length
+      const todo = updatedTasks.filter((t) => t.status === "TODO").length
+      const completed = updatedTasks.filter((t) => t.status === "DONE").length
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+      const updatedPlan: MovingPlan = {
+        ...activePlan,
+        tasks: updatedTasks,
+        totalTasks: total,
+        todoTasks: todo,
+        progress,
+      }
+
+      setPlans((prev) => prev.map((p) => (p.id === activePlan.id ? updatedPlan : p)))
+      offlineStore.setTasks(activePlan.id, updatedTasks)
+      toast.success("Tarefa adicionada ao plano.")
+
+      // Backend / Outbox
+      try {
+        if (navigator.onLine) {
+          const res = await api.tasks.create(activePlan.id, {
+            title: trimmed,
+            dueDate: dueDate || undefined,
+            status: "TODO",
+          })
+          const finalizedTasks = updatedTasks.map((t) =>
+            t.id === tempId ? { ...t, id: res.id } : t
+          )
+          setPlans((prev) =>
+            prev.map((p) =>
+              p.id === activePlan.id ? { ...p, tasks: finalizedTasks } : p
+            )
+          )
+          offlineStore.setTasks(activePlan.id, finalizedTasks)
+        } else {
+          offlineStore.enqueueOutbox({
+            id: `outbox-${Date.now()}`,
+            type: "createTask",
+            planId: activePlan.id,
+            tempTaskId: tempId,
+            payload: { title: trimmed, dueDate: dueDate || undefined, status: "TODO" },
+            timestamp: Date.now(),
+          })
+        }
+      } catch (err) {
+        console.warn("Falha ao criar no backend, enfileirando outbox:", err)
+        offlineStore.enqueueOutbox({
+          id: `outbox-${Date.now()}`,
+          type: "createTask",
+          planId: activePlan.id,
+          tempTaskId: tempId,
+          payload: { title: trimmed, dueDate: dueDate || undefined, status: "TODO" },
+          timestamp: Date.now(),
+        })
+      }
+
+      return true
+    },
+    [activePlan]
+  )
+
+  const deleteTask = React.useCallback(
+    async (taskId: string) => {
+      const updatedTasks = activePlan.tasks.filter((t) => t.id !== taskId)
+      const total = updatedTasks.length
+      const completed = updatedTasks.filter((t) => t.status === "DONE").length
+      const inProgress = updatedTasks.filter((t) => t.status === "IN_PROGRESS").length
+      const todo = updatedTasks.filter((t) => t.status === "TODO").length
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+      const updatedPlan: MovingPlan = {
+        ...activePlan,
+        tasks: updatedTasks,
+        totalTasks: total,
+        completedTasks: completed,
+        inProgressTasks: inProgress,
+        todoTasks: todo,
+        progress,
+      }
+
+      setPlans((prev) => prev.map((p) => (p.id === activePlan.id ? updatedPlan : p)))
+      offlineStore.setTasks(activePlan.id, updatedTasks)
+      toast.success("Tarefa eliminada (204).")
+
+      try {
+        if (navigator.onLine) {
+          await api.tasks.delete(activePlan.id, taskId)
+        } else {
+          offlineStore.enqueueOutbox({
+            id: `outbox-${Date.now()}`,
+            type: "deleteTask",
+            planId: activePlan.id,
+            taskId,
+            timestamp: Date.now(),
+          })
+        }
+      } catch {
+        offlineStore.enqueueOutbox({
+          id: `outbox-${Date.now()}`,
+          type: "deleteTask",
+          planId: activePlan.id,
+          taskId,
+          timestamp: Date.now(),
+        })
+      }
+    },
+    [activePlan]
+  )
+
+  const toggleSuggestion = React.useCallback(
+    (suggestionId: string) => {
+      setPlans((prev) =>
+        prev.map((plan) => {
+          if (plan.id !== activePlan.id) return plan
+          const updatedSuggs = plan.copilotSuggestions.map((s) =>
+            s.id === suggestionId ? { ...s, selected: !s.selected } : s
+          )
+          offlineStore.setSuggestions(plan.id, updatedSuggs)
+          return {
+            ...plan,
+            copilotSuggestions: updatedSuggs,
+          }
+        })
+      )
+    },
+    [activePlan.id]
+  )
+
+  const acceptSuggestionsBatch = React.useCallback(async () => {
+    const selectedSuggestions = activePlan.copilotSuggestions.filter(
+      (s) => s.selected
+    )
+    if (selectedSuggestions.length === 0) {
+      toast.info("Selecione ao menos uma sugestão para aceitar o lote.")
+      return
+    }
+
+    const newTasks: TaskItem[] = selectedSuggestions.map((s, idx) => ({
+      id: `accepted-${s.id}-${Date.now()}-${idx}`,
+      title: s.title,
+      description: s.description || "Sugestão gerada pelo Copiloto IA · Confirmada em lote",
+      dueDate: s.dueDate,
+      status: "TODO",
+      icon: "key",
+    }))
+
+    const remainingSuggestions = activePlan.copilotSuggestions.filter(
+      (s) => !s.selected
+    )
+    const combinedTasks = [...activePlan.tasks, ...newTasks]
+    const total = combinedTasks.length
+    const todo = combinedTasks.filter((t) => t.status === "TODO").length
+    const completed = combinedTasks.filter((t) => t.status === "DONE").length
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    const updatedPlan: MovingPlan = {
+      ...activePlan,
+      tasks: combinedTasks,
+      copilotSuggestions: remainingSuggestions,
+      totalTasks: total,
+      todoTasks: todo,
+      progress,
+    }
+
+    setPlans((prev) => prev.map((p) => (p.id === activePlan.id ? updatedPlan : p)))
+    offlineStore.setTasks(activePlan.id, combinedTasks)
+    offlineStore.setSuggestions(activePlan.id, remainingSuggestions)
+
+    toast.success(
+      `Lote de ${newTasks.length} tarefa(s) confirmado com sucesso (201 Created)!`
+    )
+
+    const dto = {
+      tasks: selectedSuggestions.map((s) => ({
+        title: s.title,
+        description: s.description || undefined,
+        dueDate: s.dueDate || undefined,
+      })),
+    }
+
+    try {
+      if (navigator.onLine) {
+        await api.suggestions.accept(activePlan.id, dto)
+      } else {
+        offlineStore.enqueueOutbox({
+          id: `outbox-${Date.now()}`,
+          type: "acceptSuggestions",
+          planId: activePlan.id,
+          payload: dto,
+          timestamp: Date.now(),
+        })
+      }
+    } catch (err) {
+      console.warn("Falha ao aceitar lote no backend, enfileirando outbox:", err)
+      offlineStore.enqueueOutbox({
+        id: `outbox-${Date.now()}`,
+        type: "acceptSuggestions",
+        planId: activePlan.id,
+        payload: dto,
+        timestamp: Date.now(),
+      })
+    }
+  }, [activePlan])
+
+  const discardSuggestions = React.useCallback(() => {
+    setPlans((prev) =>
+      prev.map((plan) =>
+        plan.id === activePlan.id ? { ...plan, copilotSuggestions: [] } : plan
+      )
+    )
+    offlineStore.setSuggestions(activePlan.id, [])
+    toast("Sugestões em memória descartadas.")
+  }, [activePlan.id])
+
+  const generateAiSuggestions = React.useCallback(
+    async (maxSuggestions: number = 10) => {
+      setIsGeneratingAi(true)
+      setLastAiError(null)
+
+      try {
+        if (!navigator.onLine) {
+          throw new ApiError(0, "Sem conexão com a internet.")
+        }
+
+        const res = await api.suggestions.generate(activePlan.id, {
+          maxSuggestions,
+        })
+
+        const mapped: CopilotSuggestion[] = res.suggestions.map((s, idx) => ({
+          id: `ai-${Date.now()}-${idx}`,
+          title: s.title,
+          description: s.description ?? undefined,
+          dueDate: s.dueDate ?? activePlan.movingDate,
+          selected: true,
+        }))
+
+        setPlans((prev) =>
+          prev.map((plan) =>
+            plan.id === activePlan.id
+              ? { ...plan, copilotSuggestions: mapped }
+              : plan
+          )
+        )
+        offlineStore.setSuggestions(activePlan.id, mapped)
+        toast.success(
+          `${mapped.length} sugestões geradas em memória pelo Copiloto IA.`
+        )
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setLastAiError(err)
+          if (err.isThrottled) {
+            toast.error(
+              "Limite de requisições excedido (HTTP 429). Aguarde 1 minuto."
+            )
+          } else if (err.isTimeoutOrUnavailable) {
+            toast.error(
+              "Serviço de IA indisponível ou tempo limite esgotado (15s)."
+            )
+          } else {
+            toast.error(err.message)
+          }
+        } else {
+          toast.error("Erro inesperado ao gerar sugestões.")
+        }
+
+        const fallback: CopilotSuggestion[] = [
+          {
+            id: `ai-fb-1-${Date.now()}`,
+            title: "Solicitar PB4 (Seguro Saúde Internacional)",
+            dueDate:
+              activePlan.movingDate > "2026-11-18"
+                ? "2026-11-18"
+                : activePlan.movingDate,
+            selected: true,
+          },
+          {
+            id: `ai-fb-2-${Date.now()}`,
+            title: "Emitir CNH Internacional (PID) no Detran",
+            dueDate:
+              activePlan.movingDate > "2026-11-25"
+                ? "2026-11-25"
+                : activePlan.movingDate,
+            selected: true,
+          },
+          {
+            id: `ai-fb-3-${Date.now()}`,
+            title: "Transferir titularidade de água e energia",
+            dueDate:
+              activePlan.movingDate > "2026-12-10"
+                ? "2026-12-10"
+                : activePlan.movingDate,
+            selected: true,
+          },
+        ]
+
+        setPlans((prev) =>
+          prev.map((plan) =>
+            plan.id === activePlan.id && plan.copilotSuggestions.length === 0
+              ? { ...plan, copilotSuggestions: fallback }
+              : plan
+          )
+        )
+      } finally {
+        setIsGeneratingAi(false)
+      }
+    },
+    [activePlan.id, activePlan.movingDate]
+  )
+
+  const createNewPlan = React.useCallback(
+    async (dto: CreateMovingPlanDto): Promise<MovingPlan> => {
+      const tempId = `plan-${Date.now()}`
+      let createdUiPlan: MovingPlan
+
+      if (navigator.onLine) {
+        try {
+          const res = await api.movingPlans.create(dto)
+          createdUiPlan = mapBackendPlanToUi(res, [], plans.length)
+        } catch {
+          createdUiPlan = mapBackendPlanToUi(
+            {
+              id: tempId,
+              title: dto.title,
+              origin: dto.origin,
+              destination: dto.destination,
+              movingDate: dto.movingDate,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            [],
+            plans.length
+          )
+          offlineStore.enqueueOutbox({
+            id: `outbox-${Date.now()}`,
+            type: "createPlan",
+            tempPlanId: tempId,
+            payload: dto,
+            timestamp: Date.now(),
+          })
+        }
+      } else {
+        createdUiPlan = mapBackendPlanToUi(
+          {
+            id: tempId,
+            title: dto.title,
+            origin: dto.origin,
+            destination: dto.destination,
+            movingDate: dto.movingDate,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          [],
+          plans.length
+        )
+        offlineStore.enqueueOutbox({
+          id: `outbox-${Date.now()}`,
+          type: "createPlan",
+          tempPlanId: tempId,
+          payload: dto,
+          timestamp: Date.now(),
+        })
+      }
+
+      setPlans((prev) => {
+        const updated = [createdUiPlan, ...prev]
+        offlineStore.setPlans(updated)
+        return updated
+      })
+
+      setActivePlanId(createdUiPlan.id)
+      return createdUiPlan
+    },
+    [plans.length]
+  )
+
+  const clearAiError = React.useCallback(() => setLastAiError(null), [])
+
+  const value = React.useMemo<WorkspaceStoreValue>(
+    () => ({
+      plans,
+      activePlanId: activePlan.id,
+      activePlan,
+      quickFilter,
+      checklistTab,
+      isGeneratingAi,
+      isOnline,
+      isSyncing,
+      lastAiError,
+      clearAiError,
+      selectPlan,
+      setQuickFilter,
+      setChecklistTab,
+      cycleTaskStatus,
+      addQuickTask,
+      deleteTask,
+      toggleSuggestion,
+      acceptSuggestionsBatch,
+      discardSuggestions,
+      generateAiSuggestions,
+      createNewPlan,
+      refreshActivePlanTasks,
+    }),
+    [
+      plans,
+      activePlan,
+      quickFilter,
+      checklistTab,
+      isGeneratingAi,
+      isOnline,
+      isSyncing,
+      lastAiError,
+      clearAiError,
+      selectPlan,
+      setQuickFilter,
+      cycleTaskStatus,
+      addQuickTask,
+      deleteTask,
+      toggleSuggestion,
+      acceptSuggestionsBatch,
+      discardSuggestions,
+      generateAiSuggestions,
+      createNewPlan,
+      refreshActivePlanTasks,
+    ]
+  )
+
+  return (
+    <WorkspaceStoreContext.Provider value={value}>
+      {children}
+    </WorkspaceStoreContext.Provider>
+  )
+}
+
+export function useWorkspaceStore(): WorkspaceStoreValue {
+  const ctx = React.useContext(WorkspaceStoreContext)
+  if (!ctx) {
+    throw new Error(
+      "useWorkspaceStore must be used within a WorkspaceProvider"
+    )
+  }
+  return ctx
+}

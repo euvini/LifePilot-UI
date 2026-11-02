@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -168,8 +169,12 @@ export default function DesignSystemPage() {
           </Card>
           <Card>
             <CardContent className="flex flex-col gap-2">
-              <Label htmlFor="due">Prazo da Tarefa</Label>
-              <Input id="due" defaultValue="2026-11-25" className="font-mono font-semibold" />
+              <Label htmlFor="due">Prazo da Tarefa (Popup DatePicker)</Label>
+              <DatePicker
+                id="due"
+                defaultValue="2026-11-25"
+                maxDate="2026-12-15"
+              />
               <p className="text-xs text-primary">Válido: 20 dias antes de movingDate (2026-12-15).</p>
             </CardContent>
           </Card>

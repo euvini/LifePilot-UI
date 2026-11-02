@@ -5,8 +5,10 @@ import {
   Plus_Jakarta_Sans,
 } from "next/font/google";
 
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WorkspaceProvider } from "@/context/workspace-store";
 import "./globals.css";
 
 /* Tipografia do Design System (Paper · "02 · Hierarquia Tipográfica") */
@@ -44,7 +46,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <WorkspaceProvider>
+            <div className="flex min-h-dvh w-full bg-canvas text-sm leading-4 antialiased">
+              <AppSidebar />
+              <div className="flex min-w-0 grow basis-0 flex-col">
+                {children}
+              </div>
+            </div>
+          </WorkspaceProvider>
+        </TooltipProvider>
         <Toaster />
       </body>
     </html>
