@@ -3,10 +3,10 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { cn } from "cn"
 import {
   ArrowRight,
   Check,
+  ChevronLeft,
   Home,
   MapPin,
   Navigation,
@@ -14,8 +14,10 @@ import {
   Shield,
   Sparkles,
   Star,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "cn"
 
 import { DatePicker } from "@/components/ui/date-picker"
 import { useWorkspaceStore } from "@/context/workspace-store"
@@ -23,13 +25,7 @@ import { api, ApiError } from "@/lib/api/client"
 import { computeDaysRemaining } from "@/lib/storage/mappers"
 import type { CopilotSuggestion } from "@/types/plan"
 
-const MAX_SUGGESTIONS_OPTIONS = [
-  { value: 5, label: "5 tarefas" },
-  { value: 10, label: "10 tarefas (Recomendado)" },
-  { value: 15, label: "15 tarefas" },
-  { value: 20, label: "20 (Máx)" },
-] as const
-
+const MAX_SUGGESTIONS_OPTIONS = [5, 10, 15, 20] as const
 const DEFAULT_MOVING_DATE = "2027-01-15"
 
 export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
@@ -68,8 +64,8 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
     (s) => s.selected && s.dueDate > movingDate
   )
 
-  async function handleAdvanceToStep2(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleAdvanceToStep2(e?: React.FormEvent) {
+    if (e) e.preventDefault()
     if (!title.trim() || !origin.trim() || !destination.trim() || !movingDate) {
       toast.error("Preencha todos os campos obrigatórios da rota.")
       return
@@ -225,9 +221,63 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
   }
 
   return (
-    <main className="flex grow basis-0 flex-col gap-6 bg-canvas px-6 py-8 desktop:px-9">
-      {/* Topbar Breadcrumb + Endpoint + Cancelar */}
-      <header className="flex w-full flex-wrap items-center justify-between gap-4">
+    <main className="flex grow basis-0 flex-col gap-4 bg-canvas px-4 py-3 pb-36 tablet:gap-6 tablet:px-6 tablet:py-8 tablet:pb-8 desktop:px-9">
+      {/* ═══════════════════════════════════════════════════════════════
+         MOBILE APP BAR (Paper 1IT-0 / 1LM-0)
+         Visible on mobile (< tablet)
+         ═══════════════════════════════════════════════════════════════ */}
+      <div className="flex w-full flex-col gap-2 pt-1 pb-1 tablet:hidden">
+        <div className="flex w-full items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              if (step === 2) {
+                setStep(1)
+              } else {
+                router.push("/")
+              }
+            }}
+            className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-surface text-ink transition-colors hover:bg-surface-subtle"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+
+          <span className="font-display text-[15px] font-bold text-ink">
+            {step === 1 ? "Novo Plano de Mudança" : "Sugestões do Copiloto"}
+          </span>
+
+          <Link
+            href="/"
+            className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-surface text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink"
+          >
+            <X className="size-4" />
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-1.5 rounded-full bg-surface-subtle px-2 py-[3px]">
+            <span
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                step === 1 ? "bg-success" : "bg-accent-ai"
+              )}
+            />
+            <span className="font-mono text-[10px] text-ink-secondary">
+              {step === 1
+                ? "POST /api/v1/moving-plans"
+                : "POST /.../task-suggestions/accept"}
+            </span>
+          </div>
+          <span className="font-mono text-[10px] font-bold text-primary">
+            {step === 1 ? "ETAPA 1 DE 2" : "ETAPA 2 DE 2"}
+          </span>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+         DESKTOP TOPBAR (Hidden on mobile)
+         ═══════════════════════════════════════════════════════════════ */}
+      <header className="hidden w-full flex-wrap items-center justify-between gap-4 tablet:flex">
         {step === 1 ? (
           <div className="flex flex-wrap items-center gap-3.5">
             <div className="font-sans text-[13px] leading-4 font-medium text-ink-muted">
@@ -284,8 +334,73 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
         </div>
       </header>
 
-      {/* Barra de Etapas (Stepper 1/2 e 2/2) */}
-      <section className="flex w-full flex-col items-start justify-between gap-6 rounded-lg border border-border bg-surface px-6 py-[18px] tablet:flex-row tablet:items-center">
+      {/* ═══════════════════════════════════════════════════════════════
+         MOBILE STEPPER STRIP (Paper 1J7-0 / 1M0-0)
+         ═══════════════════════════════════════════════════════════════ */}
+      <section className="flex w-full items-center justify-around rounded-[12px] border border-border bg-surface px-4 py-2.5 shadow-xs tablet:hidden">
+        <button
+          type="button"
+          onClick={() => setStep(1)}
+          className="flex items-center gap-2"
+        >
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+            {step === 1 ? (
+              <span className="font-display text-xs font-bold">1</span>
+            ) : (
+              <Check className="size-3.5 text-icon-mint" strokeWidth={3} />
+            )}
+          </div>
+          <span
+            className={cn(
+              "font-sans text-xs",
+              step === 1 ? "font-bold text-ink" : "font-medium text-ink-muted"
+            )}
+          >
+            {step === 1 ? "Rota & Dados" : "Rota (201)"}
+          </span>
+        </button>
+
+        <div
+          className={cn(
+            "h-0.5 w-8 shrink-0",
+            step === 2 ? "bg-accent-ai" : "bg-border-strong"
+          )}
+        />
+
+        <button
+          type="button"
+          disabled={!createdPlanId}
+          onClick={() => createdPlanId && setStep(2)}
+          className={cn(
+            "flex items-center gap-2 transition-opacity",
+            step === 1 && "opacity-50"
+          )}
+        >
+          <div
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full",
+              step === 2
+                ? "bg-accent-ai text-white"
+                : "border border-dashed border-ink-muted bg-surface-subtle text-ink-muted"
+            )}
+          >
+            <span className="font-display text-xs font-bold">2</span>
+          </div>
+          <span
+            className={cn(
+              "font-sans text-xs",
+              step === 2 ? "font-bold text-ink" : "font-medium text-ink-muted"
+            )}
+          >
+            {step === 1 ? "IA & Lote" : "Revisão Lote"}
+          </span>
+        </button>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+         DESKTOP STEPPER STRIP
+         ═══════════════════════════════════════════════════════════════ */}
+      <section className="hidden w-full flex-col items-start justify-between gap-6 rounded-lg border border-border bg-surface px-6 py-[18px] tablet:flex tablet:flex-row tablet:items-center">
         {/* Etapa 1 */}
         <button
           type="button"
@@ -320,7 +435,7 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
 
         <div
           className={cn(
-            "hidden h-0.5 w-12 shrink-0 tablet:block",
+            "h-0.5 w-12 shrink-0",
             step === 1 ? "bg-border-strong" : "bg-accent-ai"
           )}
         />
@@ -384,38 +499,37 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
         /* ═══════════════════════════════════════════════════════════════
            ETAPA 1/2 — Rota & Parâmetros IA
            ═══════════════════════════════════════════════════════════════ */
-        <div className="flex w-full flex-col items-start gap-6 desktop:flex-row">
-          {/* Card Principal do Formulário */}
+        <div className="flex w-full flex-col items-start gap-4 tablet:gap-6 desktop:flex-row">
+          {/* Card Principal do Formulário (Paper 1JI-0 on mobile) */}
           <form
             onSubmit={handleAdvanceToStep2}
-            className="flex w-full grow basis-0 flex-col gap-6 rounded-xl border border-border bg-surface p-8 shadow-sm"
+            className="flex w-full grow basis-0 flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm tablet:gap-6 tablet:p-8"
           >
-            <div className="flex flex-col gap-2">
-              <h1 className="font-display text-[24px] leading-[30px] font-bold tracking-[-0.02em] text-ink">
+            <div className="flex flex-col gap-1.5 tablet:gap-2">
+              <h1 className="font-display text-lg font-bold tracking-[-0.02em] text-ink tablet:text-[24px] tablet:leading-[30px]">
                 Defina a sua Rota de Mudança.
               </h1>
-              <p className="font-sans text-base/base text-ink-muted">
+              <p className="font-sans text-xs text-ink-muted tablet:text-base/base">
                 Preencha as informações do seu plano. O Copiloto de IA traçará
-                sugestões inteligentes de tarefas com prazos rigorosamente
-                calculados antes da sua data limite.
+                sugestões inteligentes com prazos calculados antes do seu teto limite.
               </p>
             </div>
 
             {/* Título do Plano */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5 tablet:gap-2">
               <div className="flex items-center justify-between">
                 <label
                   htmlFor="plan-title"
-                  className="font-sans text-sm leading-4 font-bold tracking-[0.04em] text-ink uppercase"
+                  className="font-sans text-xs leading-4 font-bold tracking-[0.04em] text-ink uppercase tablet:text-sm"
                 >
                   TÍTULO DO PLANO *
                 </label>
-                <span className="font-mono text-xs/xs text-ink-muted">
-                  max 100 caracteres ({title.length}/100)
+                <span className="font-mono text-[10px] text-ink-muted tablet:text-xs/xs">
+                  ({title.length}/100)
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-4 py-3 focus-within:border-primary focus-within:bg-canvas">
-                <Home className="size-[18px] shrink-0 text-primary" />
+              <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3.5 py-2.5 focus-within:border-primary focus-within:bg-canvas tablet:px-4 tablet:py-3">
+                <Home className="size-4 shrink-0 text-primary tablet:size-[18px]" />
                 <input
                   id="plan-title"
                   type="text"
@@ -424,99 +538,117 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="w-full bg-transparent font-sans text-base/sm font-semibold text-ink outline-none placeholder:text-ink-muted"
+                  className="w-full bg-transparent font-sans text-xs font-semibold text-ink outline-none placeholder:text-ink-muted tablet:text-base/sm"
                 />
               </div>
             </div>
 
             {/* Origem & Destino */}
-            <div className="flex w-full flex-col gap-4 tablet:flex-row">
-              <div className="flex grow basis-0 flex-col gap-2">
+            <div className="flex w-full flex-col gap-3 tablet:flex-row tablet:gap-4">
+              <div className="flex grow basis-0 flex-col gap-1.5 tablet:gap-2">
                 <label
                   htmlFor="plan-origin"
-                  className="font-sans text-sm leading-4 font-bold tracking-[0.04em] text-ink uppercase"
+                  className="font-sans text-xs leading-4 font-bold tracking-[0.04em] text-ink uppercase tablet:text-sm"
                 >
                   CIDADE DE ORIGEM *
                 </label>
-                <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-4 py-3 focus-within:border-primary focus-within:bg-canvas">
-                  <Navigation className="size-[18px] shrink-0 text-ink-muted" />
+                <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3.5 py-2.5 focus-within:border-primary focus-within:bg-canvas tablet:px-4 tablet:py-3">
+                  <Navigation className="size-4 shrink-0 text-ink-muted tablet:size-[18px]" />
                   <input
                     id="plan-origin"
                     type="text"
-                    placeholder="Ex: São Paulo, SP (Brasil)"
+                    placeholder="Ex: São Paulo, SP"
                     value={origin}
                     onChange={(e) => setOrigin(e.target.value)}
                     required
-                    className="w-full bg-transparent font-sans text-base/sm text-ink outline-none placeholder:text-ink-muted"
+                    className="w-full bg-transparent font-sans text-xs text-ink outline-none placeholder:text-ink-muted tablet:text-base/sm"
                   />
                 </div>
               </div>
 
-              <div className="flex grow basis-0 flex-col gap-2">
+              <div className="flex grow basis-0 flex-col gap-1.5 tablet:gap-2">
                 <label
                   htmlFor="plan-destination"
-                  className="font-sans text-sm leading-4 font-bold tracking-[0.04em] text-ink uppercase"
+                  className="font-sans text-xs leading-4 font-bold tracking-[0.04em] text-ink uppercase tablet:text-sm"
                 >
                   CIDADE DE DESTINO *
                 </label>
-                <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-4 py-3 focus-within:border-primary focus-within:bg-canvas">
-                  <MapPin className="size-[18px] shrink-0 text-primary" />
+                <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3.5 py-2.5 focus-within:border-primary focus-within:bg-canvas tablet:px-4 tablet:py-3">
+                  <MapPin className="size-4 shrink-0 text-primary tablet:size-[18px]" />
                   <input
                     id="plan-destination"
                     type="text"
-                    placeholder="Ex: Lisboa (Portugal)"
+                    placeholder="Ex: Lisboa, Portugal"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     required
-                    className="w-full bg-transparent font-sans text-base/sm font-semibold text-ink outline-none placeholder:text-ink-muted"
+                    className="w-full bg-transparent font-sans text-xs font-semibold text-ink outline-none placeholder:text-ink-muted tablet:text-base/sm"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Data Prevista + Quantidade de Sugestões IA */}
-            <div className="flex w-full flex-col gap-4 tablet:flex-row">
-              <div className="flex grow basis-0 flex-col gap-2">
-                <label className="font-sans text-sm leading-4 font-bold tracking-[0.04em] text-ink uppercase">
-                  DATA PREVISTA DA MUDANÇA *
-                </label>
-                <DatePicker
-                  value={movingDate}
-                  onChange={setMovingDate}
-                  ariaLabel="Data prevista da mudança"
-                  className="w-full"
-                />
-                <span className="font-mono text-xs/xs text-ink-secondary">
-                  Teto máximo para prazos: {movingDate} ({daysRemaining} dias)
-                </span>
+            {/* Data Prevista */}
+            <div className="flex flex-col gap-1.5 tablet:gap-2">
+              <label className="font-sans text-xs leading-4 font-bold tracking-[0.04em] text-ink uppercase tablet:text-sm">
+                DATA PREVISTA DA MUDANÇA *
+              </label>
+              <DatePicker
+                value={movingDate}
+                onChange={setMovingDate}
+                ariaLabel="Data prevista da mudança"
+                className="w-full"
+              />
+              <span className="font-mono text-[10px] text-ink-secondary tablet:text-xs/xs">
+                Teto máximo para prazos: {movingDate} ({daysRemaining} dias)
+              </span>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════
+               MOBILE COPILOT SETTINGS CARD (Paper 1KJ-0)
+               Strictly matching Paper 1KJ-0
+               ═══════════════════════════════════════════════════════════ */}
+            <div className="flex flex-col gap-2.5 rounded-lg border-[1.5px] border-accent-ai bg-accent-ai-soft p-[14px]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="size-4 text-accent-ai" />
+                  <span className="font-display text-[13px] font-bold leading-4 text-purple-stroke">
+                    Copiloto IA
+                  </span>
+                </div>
+                <div className="rounded-full border border-accent-ai bg-white px-2 py-0.5 font-mono text-[9px] font-semibold text-accent-ai">
+                  5 REQ/MIN
+                </div>
               </div>
 
-              <div className="flex grow basis-0 flex-col gap-2">
-                <label className="font-sans text-sm leading-4 font-bold tracking-[0.04em] text-ink uppercase">
-                  SUGESTÕES DA IA
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {MAX_SUGGESTIONS_OPTIONS.map((opt) => (
+              <span className="font-sans text-xs leading-[15px] text-[#351C75]">
+                Geração assistida sem gravar no banco. Selecione a quantidade:
+              </span>
+
+              <div className="flex gap-1.5">
+                {MAX_SUGGESTIONS_OPTIONS.map((num) => {
+                  const isSelected = maxSuggestions === num
+                  return (
                     <button
-                      key={opt.value}
+                      key={num}
                       type="button"
-                      onClick={() => setMaxSuggestions(opt.value)}
+                      onClick={() => setMaxSuggestions(num)}
                       className={cn(
-                        "rounded-md border p-2.5 text-center font-sans text-xs/xs font-semibold transition-colors",
-                        maxSuggestions === opt.value
-                          ? "border-primary bg-primary-soft text-primary font-bold"
-                          : "border-border bg-surface text-ink-secondary hover:bg-surface-subtle"
+                        "rounded-sm px-2.5 py-1.5 font-sans text-xs/xs transition-colors",
+                        isSelected
+                          ? "bg-accent-ai font-bold text-white shadow-xs"
+                          : "border border-border bg-white font-semibold text-ink-secondary hover:bg-surface-subtle"
                       )}
                     >
-                      {opt.label}
+                      {num === 10 ? "10 (Padrão)" : num}
                     </button>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Botão de Avanço */}
-            <div className="flex items-center justify-end border-t border-border pt-4">
+            {/* Botão de Avanço Desktop */}
+            <div className="hidden items-center justify-end border-t border-border pt-4 tablet:flex">
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -537,8 +669,8 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
             </div>
           </form>
 
-          {/* Coluna Direita Explicativa */}
-          <aside className="flex w-full shrink-0 flex-col gap-5 desktop:w-[360px]">
+          {/* Coluna Direita Explicativa (Desktop) */}
+          <aside className="hidden w-full shrink-0 flex-col gap-5 tablet:flex desktop:w-[360px]">
             <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] bg-primary-soft">
@@ -614,14 +746,66 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
               </div>
             </div>
           </aside>
+
+          {/* ═══════════════════════════════════════════════════════════
+             MOBILE STICKY FOOTER (Paper 1L2-0)
+             Fixed at bottom on mobile (< tablet)
+             ═══════════════════════════════════════════════════════════ */}
+          <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border bg-surface px-5 pt-3 pb-2 tablet:hidden">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => handleAdvanceToStep2()}
+              className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-primary py-3 px-5 shadow-sm transition-colors hover:bg-primary-strong disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin text-icon-mint" />
+                  <span className="font-sans text-[13px] font-bold text-white">
+                    Criando Plano...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-sans text-[13px] font-bold text-white">
+                    Salvar Plano &amp; Gerar com IA
+                  </span>
+                  <ArrowRight className="size-4 text-icon-mint" />
+                </>
+              )}
+            </button>
+            <div className="mx-auto mt-1 h-[5px] w-[134px] shrink-0 rounded-full bg-ink/25" />
+          </div>
         </div>
       ) : (
         /* ═══════════════════════════════════════════════════════════════
            ETAPA 2/2 — Sugestões IA & Confirmação em Lote
            ═══════════════════════════════════════════════════════════════ */
         <>
-          {/* Banner Resumo do Plano Criado */}
-          <section className="flex w-full flex-wrap items-center justify-between gap-4 rounded-lg bg-primary px-6 py-[18px]">
+          {/* ═══════════════════════════════════════════════════════════
+             MOBILE PLAN MINI BANNER (Paper 1MC-0)
+             ═══════════════════════════════════════════════════════════ */}
+          <section className="flex items-center justify-between rounded-[12px] bg-primary px-[14px] py-3 text-white tablet:hidden">
+            <div className="flex items-center gap-2">
+              <div className="flex size-[26px] shrink-0 items-center justify-center rounded-sm bg-primary-strong">
+                <Home className="size-3.5 text-icon-mint" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-display text-[13px] font-bold leading-4 text-white">
+                  {title}
+                </span>
+                <span className="font-sans text-[10px] leading-3 text-border">
+                  {origin} → {destination} · Teto {movingDate}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-[4px] bg-primary-strong px-[6px] py-[2px] font-mono text-[9px] font-bold text-icon-mint">
+              FALTAM {daysRemaining}D
+            </div>
+          </section>
+
+          {/* Desktop Banner Resumo */}
+          <section className="hidden w-full flex-wrap items-center justify-between gap-4 rounded-lg bg-primary px-6 py-[18px] tablet:flex">
             <div className="flex items-center gap-4">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-[12px] border border-success bg-primary-strong">
                 <Home className="size-6 text-icon-mint" />
@@ -651,17 +835,17 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
             </div>
           </section>
 
-          {/* Grid Principal: Lista de Sugestões (Esquerda) + Aceite em Lote (Direita) */}
-          <div className="flex w-full flex-col items-start gap-6 desktop:flex-row">
-            {/* Lista de Sugestões Geradas pelo Copiloto */}
-            <section className="flex w-full grow basis-0 flex-col gap-4 rounded-xl border border-border bg-surface p-7 shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-border pb-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex flex-col gap-1">
-                    <h2 className="font-display text-lg/md font-bold tracking-[-0.01em] text-ink">
-                      Sugestões Geradas pelo Copiloto IA.
+          {/* Grid Principal: Lista de Sugestões + Aceite em Lote */}
+          <div className="flex w-full flex-col items-start gap-4 tablet:gap-6 desktop:flex-row">
+            {/* Lista de Sugestões Geradas pelo Copiloto (Paper 1MN-0) */}
+            <section className="flex w-full grow basis-0 flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm tablet:gap-4 tablet:p-7">
+              <div className="flex flex-col gap-2 border-b border-border pb-3 tablet:gap-3 tablet:pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <h2 className="font-display text-base font-bold tracking-[-0.01em] text-ink tablet:text-lg/md">
+                      Sugestões do Copiloto IA
                     </h2>
-                    <p className="font-sans text-[13px] leading-4 text-ink-muted">
+                    <p className="hidden font-sans text-[13px] leading-4 text-ink-muted tablet:block">
                       Revise os itens sugeridos. Ajuste as datas limites conforme
                       necessário e desmarque os que não se aplicam à sua mudança.
                     </p>
@@ -674,13 +858,13 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
 
               {/* Estado de Carregamento da IA */}
               {isGeneratingAi && (
-                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-purple-stroke/50 bg-accent-ai-soft/30 p-12 text-center">
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-purple-stroke/50 bg-accent-ai-soft/30 p-8 text-center tablet:p-12">
                   <Sparkles className="size-8 animate-spin text-accent-ai" />
                   <div className="flex flex-col gap-1">
-                    <span className="font-display text-base/sm font-bold text-purple-stroke">
+                    <span className="font-display text-sm font-bold text-purple-stroke tablet:text-base/sm">
                       O Copiloto IA está analisando sua rota...
                     </span>
-                    <span className="font-sans text-xs/xs text-ink-muted">
+                    <span className="font-sans text-[11px] text-ink-muted tablet:text-xs/xs">
                       Identificando burocracias aduaneiras, prazos consulares e cronograma logístico.
                     </span>
                   </div>
@@ -689,8 +873,8 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
 
               {/* Linhas de Sugestões Reais */}
               {!isGeneratingAi && suggestions.length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-surface-subtle p-8 text-center">
-                  <span className="font-sans text-sm text-ink-muted">
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-surface-subtle p-6 text-center tablet:p-8">
+                  <span className="font-sans text-xs text-ink-muted tablet:text-sm">
                     Nenhuma sugestão retornada no momento.
                   </span>
                   <button
@@ -705,7 +889,7 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
               )}
 
               {!isGeneratingAi && suggestions.length > 0 && (
-                <div className="flex flex-col gap-3.5">
+                <div className="flex flex-col gap-2.5 tablet:gap-3.5">
                   {suggestions.map((item) => {
                     const isInvalid =
                       item.selected && item.dueDate > movingDate
@@ -714,37 +898,37 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
                       <div
                         key={item.id}
                         className={cn(
-                          "flex w-full flex-wrap items-center gap-3.5 rounded-[12px] px-[18px] py-3.5 transition-all tablet:flex-nowrap",
+                          "flex w-full items-center justify-between gap-3 rounded-[12px] p-3 transition-all tablet:px-[18px] tablet:py-3.5",
                           item.selected
                             ? "border-[1.5px] border-accent-ai-soft bg-surface shadow-xs"
                             : "border border-dashed border-border-strong bg-surface opacity-75"
                         )}
                       >
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSuggestion(item.id)}
-                          aria-label={`Selecionar ${item.title}`}
-                          className={cn(
-                            "flex size-[22px] shrink-0 items-center justify-center rounded-sm transition-colors",
-                            item.selected
-                              ? "bg-accent-ai text-surface"
-                              : "border-2 border-border-strong bg-surface"
-                          )}
-                        >
-                          {item.selected && (
-                            <Check className="size-3.5" strokeWidth={3} />
-                          )}
-                        </button>
+                        <div className="flex min-w-0 grow basis-0 items-center gap-2.5 tablet:gap-3.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSuggestion(item.id)}
+                            aria-label={`Selecionar ${item.title}`}
+                            className={cn(
+                              "flex size-[20px] shrink-0 items-center justify-center rounded-sm transition-colors tablet:size-[22px]",
+                              item.selected
+                                ? "bg-accent-ai text-surface"
+                                : "border-2 border-border-strong bg-surface"
+                            )}
+                          >
+                            {item.selected && (
+                              <Check className="size-3.5" strokeWidth={3} />
+                            )}
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSuggestion(item.id)}
-                          className="flex min-w-0 grow basis-0 flex-col gap-[3px] text-left"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSuggestion(item.id)}
+                            className="flex min-w-0 grow basis-0 flex-col gap-[2px] text-left"
+                          >
                             <span
                               className={cn(
-                                "font-sans text-base/sm",
+                                "truncate font-sans text-xs tablet:text-base/sm",
                                 item.selected
                                   ? "font-bold text-ink"
                                   : "font-semibold text-ink-secondary"
@@ -752,13 +936,13 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
                             >
                               {item.title}
                             </span>
-                          </div>
-                          <span className="font-sans text-sm leading-4 text-ink-muted">
-                            {item.selected
-                              ? item.description || "Sem descrição adicional"
-                              : "Item desmarcado: não será persistido na confirmação do lote."}
-                          </span>
-                        </button>
+                            <span className="hidden truncate font-sans text-sm leading-4 text-ink-muted tablet:block">
+                              {item.selected
+                                ? item.description || "Sem descrição adicional"
+                                : "Item desmarcado: não será persistido."}
+                            </span>
+                          </button>
+                        </div>
 
                         <DatePicker
                           variant="compact"
@@ -779,8 +963,8 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
               )}
             </section>
 
-            {/* Coluna Direita: Aceite em Lote + Garantia Transacional */}
-            <aside className="flex w-full shrink-0 flex-col gap-5 desktop:w-[360px]">
+            {/* Coluna Direita Desktop: Aceite em Lote + Garantia Transacional */}
+            <aside className="hidden w-full shrink-0 flex-col gap-5 tablet:flex desktop:w-[360px]">
               <div className="flex flex-col gap-[18px] rounded-xl border-[1.5px] border-accent-ai bg-surface p-6 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -889,6 +1073,55 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
                 </div>
               </div>
             </aside>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+             MOBILE STICKY FOOTER (Paper 1O9-0)
+             Strictly matching Paper 1O9-0
+             ═══════════════════════════════════════════════════════════ */}
+          <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border bg-surface px-5 pt-3 pb-2 tablet:hidden">
+            <div className="flex items-center justify-between px-1">
+              <span className="font-sans text-xs/xs text-ink-muted">
+                Gravação atômica:
+              </span>
+              <div className="rounded-[4px] bg-accent-ai-soft px-[6px] py-[2px] font-mono text-xs/xs font-bold text-purple-stroke">
+                PRISMA $TX
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSubmitting || selectedCount === 0 || hasInvalidDate}
+              onClick={handleConfirmBatch}
+              className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-primary py-3 px-5 shadow-sm transition-colors hover:bg-primary-strong disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin text-icon-mint" />
+                  <span className="font-sans text-[13px] font-bold text-white">
+                    Gravando no Banco...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-sans text-[13px] font-bold text-white">
+                    Confirmar e Criar Lote ({selectedCount})
+                  </span>
+                  <Check className="size-4 text-icon-mint" strokeWidth={2.5} />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={isGeneratingAi}
+              onClick={handleRegenerate}
+              className="py-[4px] font-sans text-xs/xs font-semibold text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+            >
+              ↻ Regenerar sugestões
+            </button>
+
+            <div className="mx-auto mt-0.5 h-[5px] w-[134px] shrink-0 rounded-full bg-ink/25" />
           </div>
         </>
       )}

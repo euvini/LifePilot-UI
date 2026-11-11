@@ -7,6 +7,8 @@ import {
 } from "next/font/google";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WorkspaceProvider } from "@/context/workspace-store";
@@ -52,13 +54,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="flex min-h-dvh w-full bg-canvas text-sm leading-4 antialiased">
               <Suspense
                 fallback={
-                  <aside className="sticky top-0 h-dvh w-72 shrink-0 border-r border-border bg-surface-subtle" />
+                  <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 border-r border-border bg-surface-subtle tablet:flex" />
                 }
               >
                 <AppSidebar />
               </Suspense>
-              <div className="flex min-w-0 grow basis-0 flex-col">
+              <div className="flex min-w-0 grow basis-0 flex-col pb-20 tablet:pb-0">
+                <Suspense fallback={null}>
+                  <MobileHeader />
+                </Suspense>
                 {children}
+                <Suspense fallback={null}>
+                  <MobileBottomNav />
+                </Suspense>
               </div>
             </div>
           </WorkspaceProvider>

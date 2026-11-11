@@ -69,7 +69,7 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="sticky top-0 flex h-dvh max-h-dvh w-72 shrink-0 flex-col justify-between gap-5 overflow-y-auto border-r border-border bg-surface-subtle px-5 py-7">
+    <aside className="sticky top-0 hidden tablet:flex h-dvh max-h-dvh w-72 shrink-0 flex-col justify-between gap-5 overflow-y-auto border-r border-border bg-surface-subtle px-5 py-7">
       <div className="flex flex-col gap-5">
         {/* Cabeçalho da marca */}
         <div className="flex items-center justify-between px-1">
