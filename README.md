@@ -2,7 +2,7 @@
 
 Frontend do **LifePilot AI** — Copiloto inteligente para planejamento de mudanças de vida e residência nacionais e internacionais.
 
-Projetado e implementado a partir do Design System **Botanical Calm** no **Paper** (`fileId: 01M61MD1EZJNQHVB7GVCTX4MZ7`).
+Projetado e implementado a partir do Design System **Botanical Calm** no **Paper**.
 
 ---
 
