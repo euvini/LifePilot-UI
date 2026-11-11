@@ -22,6 +22,14 @@ import type {
 
 export type QuickViewFilter = "all" | "in_progress" | "ai"
 
+export interface AiConfig {
+  provider: string
+  model: string
+  baseUrl: string
+  isCloud: boolean
+  label: string
+}
+
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   TODO: "IN_PROGRESS",
   IN_PROGRESS: "DONE",
@@ -39,6 +47,7 @@ interface WorkspaceStoreValue {
   isSyncing: boolean
   isLoadingPlans: boolean
   lastAiError: ApiError | null
+  aiConfig: AiConfig
   clearAiError: () => void
   selectPlan: (planId: string) => void
   setQuickFilter: (filter: QuickViewFilter) => void
@@ -91,6 +100,13 @@ export function WorkspaceProvider({
   const [isSyncing, setIsSyncing] = React.useState(false)
   const [isLoadingPlans, setIsLoadingPlans] = React.useState(true)
   const [lastAiError, setLastAiError] = React.useState<ApiError | null>(null)
+  const [aiConfig, setAiConfig] = React.useState<AiConfig>({
+    provider: "Ollama",
+    model: "beam:cloud",
+    baseUrl: "https://ollama.com",
+    isCloud: true,
+    label: "Ollama Cloud · beam:cloud",
+  })
 
   const activePlan = React.useMemo(() => {
     if (plans.length === 0) return null
@@ -159,9 +175,23 @@ export function WorkspaceProvider({
 
     try {
       setIsLoadingPlans(true)
-      const backendPlans = await api.movingPlans.list()
-      if (Array.isArray(backendPlans)) {
-        const mapped = backendPlans.map((bp, idx) => {
+      const [backendPlans, aiRes] = await Promise.allSettled([
+        api.movingPlans.list(),
+        api.health.ai(),
+      ])
+
+      if (aiRes.status === "fulfilled" && aiRes.value?.model) {
+        setAiConfig({
+          provider: aiRes.value.provider,
+          model: aiRes.value.model,
+          baseUrl: aiRes.value.baseUrl,
+          isCloud: aiRes.value.isCloud,
+          label: aiRes.value.label || `${aiRes.value.provider} · ${aiRes.value.model}`,
+        })
+      }
+
+      if (backendPlans.status === "fulfilled" && Array.isArray(backendPlans.value)) {
+        const mapped = backendPlans.value.map((bp, idx) => {
           const cachedTasks = offlineStore.getTasks(bp.id) ?? []
           const cachedSuggs = offlineStore.getSuggestions(bp.id) ?? []
           const uiPlan = mapBackendPlanToUi(bp, cachedTasks, idx)
@@ -194,11 +224,24 @@ export function WorkspaceProvider({
       }
 
       try {
-        const backendPlans = await api.movingPlans.list()
+        const [backendPlans, aiRes] = await Promise.allSettled([
+          api.movingPlans.list(),
+          api.health.ai(),
+        ])
         if (!isMounted) return
 
-        if (Array.isArray(backendPlans)) {
-          const mapped = backendPlans.map((bp, idx) => {
+        if (aiRes.status === "fulfilled" && aiRes.value?.model) {
+          setAiConfig({
+            provider: aiRes.value.provider,
+            model: aiRes.value.model,
+            baseUrl: aiRes.value.baseUrl,
+            isCloud: aiRes.value.isCloud,
+            label: aiRes.value.label || `${aiRes.value.provider} · ${aiRes.value.model}`,
+          })
+        }
+
+        if (backendPlans.status === "fulfilled" && Array.isArray(backendPlans.value)) {
+          const mapped = backendPlans.value.map((bp, idx) => {
             const cachedTasks = offlineStore.getTasks(bp.id) ?? []
             const cachedSuggs = offlineStore.getSuggestions(bp.id) ?? []
             const uiPlan = mapBackendPlanToUi(bp, cachedTasks, idx)
@@ -826,6 +869,7 @@ export function WorkspaceProvider({
       isSyncing,
       isLoadingPlans,
       lastAiError,
+      aiConfig,
       clearAiError,
       selectPlan,
       setQuickFilter,
@@ -853,6 +897,7 @@ export function WorkspaceProvider({
       isSyncing,
       isLoadingPlans,
       lastAiError,
+      aiConfig,
       clearAiError,
       selectPlan,
       setQuickFilter,

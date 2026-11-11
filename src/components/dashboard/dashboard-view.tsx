@@ -33,6 +33,7 @@ export function DashboardView() {
     isLoadingPlans,
     isOnline,
     isSyncing,
+    aiConfig,
     refreshPlans,
     cycleTaskStatus,
   } = useWorkspaceStore()
@@ -242,12 +243,15 @@ export function DashboardView() {
           </div>
           <div className="flex flex-col gap-0.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="truncate font-display text-lg font-extrabold text-purple-stroke tablet:text-[24px]">
-                Llama 3.2
+              <span
+                title={`${aiConfig.provider} · ${aiConfig.model}`}
+                className="truncate font-display text-lg font-extrabold text-purple-stroke tablet:text-[22px] desktop:text-[24px]"
+              >
+                {aiConfig.model}
               </span>
             </div>
             <span className="truncate font-sans text-[10px] text-ink-muted tablet:text-xs/xs">
-              LLM local ativa
+              {aiConfig.provider} {aiConfig.isCloud ? "(Cloud)" : "(Local)"} · Ativo
             </span>
           </div>
         </div>
@@ -573,10 +577,10 @@ export function DashboardView() {
 
               <div className="rounded-lg border border-purple-stroke/30 bg-surface/80 p-3 text-center tablet:p-3.5">
                 <span className="font-mono text-[10px] font-bold text-purple-stroke tablet:text-xs/xs">
-                  LLM LOCAL 100% OPERACIONAL
+                  {aiConfig.provider.toUpperCase()} {aiConfig.isCloud ? "CLOUD" : "LOCAL"} OPERACIONAL
                 </span>
                 <p className="mt-0.5 font-sans text-[10px] text-ink-muted tablet:mt-1 tablet:text-[11px]">
-                  Geração rápida de sugestões via Ollama no backend LifePilot.
+                  Modelo configurado: {aiConfig.model} via {aiConfig.provider}.
                 </p>
               </div>
             </section>

@@ -74,6 +74,15 @@ export interface HealthResponse {
   timestamp: string
 }
 
+export interface AiConfigResponse {
+  status: string
+  provider: string
+  model: string
+  baseUrl: string
+  isCloud: boolean
+  label: string
+}
+
 export interface ApiErrorResponse {
   statusCode: number
   message: string | string[]

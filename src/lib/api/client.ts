@@ -1,5 +1,6 @@
 import type {
   AcceptTaskSuggestionsDto,
+  AiConfigResponse,
   CreateMovingPlanDto,
   CreateTaskDto,
   GenerateTaskSuggestionsDto,
@@ -104,6 +105,7 @@ async function request<T>(
 export const api = {
   health: {
     check: () => request<HealthResponse>("health", { method: "GET" }, 5000),
+    ai: () => request<AiConfigResponse>("health/ai", { method: "GET" }, 5000),
   },
 
   movingPlans: {

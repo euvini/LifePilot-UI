@@ -30,7 +30,7 @@ const DEFAULT_MOVING_DATE = "2027-01-15"
 
 export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
   const router = useRouter()
-  const { createNewPlan, refreshPlans, refreshActivePlanTasks } =
+  const { createNewPlan, refreshPlans, refreshActivePlanTasks, aiConfig } =
     useWorkspaceStore()
 
   const [step, setStep] = React.useState<1 | 2>(initialStep)
@@ -101,7 +101,7 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
 
         setSuggestions(mapped)
         toast.success(
-          `${mapped.length} sugestões geradas pelo Copiloto IA (Llama 3.2).`
+          `${mapped.length} sugestões geradas pelo Copiloto IA (${aiConfig.model}).`
         )
       } catch (aiErr) {
         console.error("Falha ao gerar sugestões da IA:", aiErr)
@@ -724,7 +724,7 @@ export function NewPlanWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
                     Motor LLM:
                   </span>
                   <span className="font-mono text-xs leading-4 font-bold text-primary">
-                    Ollama · Llama 3.2
+                    {aiConfig.provider} · {aiConfig.model}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
