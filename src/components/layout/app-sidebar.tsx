@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "cn"
-import { LayoutDashboard, Trash2 } from "lucide-react"
+import { LayoutDashboard, LogOut, Trash2 } from "lucide-react"
 
 import {
   BrandLogoIcon,
@@ -12,6 +12,7 @@ import {
   SidebarPlanHomeIcon,
 } from "@/components/icons/duotone"
 import { DeletePlanDialog } from "@/components/plans/delete-plan-dialog"
+import { useAuth } from "@/context/auth-context"
 import {
   useWorkspaceStore,
   type QuickViewFilter,
@@ -37,6 +38,7 @@ function PlanSidebarIcon({ type }: { type: MovingPlan["sidebarIcon"] }) {
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, logout } = useAuth()
   const {
     plans,
     activePlan,
@@ -47,8 +49,12 @@ export function AppSidebar() {
     isSyncing,
   } = useWorkspaceStore()
 
-  // Oculta a sidebar na página de referência isolada do Design System
-  if (pathname?.startsWith("/design-system")) {
+  // Oculta a sidebar na página de referência isolada do Design System e nas rotas de autenticação
+  if (
+    pathname?.startsWith("/design-system") ||
+    pathname === "/login" ||
+    pathname === "/cadastro"
+  ) {
     return null
   }
 
@@ -351,6 +357,32 @@ export function AppSidebar() {
             Novo Plano de Mudança
           </span>
         </Link>
+
+        {user && (
+          <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-2.5 shadow-xs">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-xs font-bold text-icon-mint">
+                {user.email.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-sans text-xs font-semibold text-ink" title={user.email}>
+                  {user.email}
+                </span>
+                <span className="font-mono text-[9px] text-ink-muted">
+                  Sessão ativa
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              title="Sair da conta"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-danger-soft hover:text-danger"
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+        )}
 
         <Link
           href="/design-system"

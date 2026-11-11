@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import { api, ApiError } from "@/lib/api/client"
 import type { CreateMovingPlanDto } from "@/lib/api/types"
+import { useAuth } from "@/context/auth-context"
 import {
   mapBackendPlanToUi,
   mapBackendTaskToItem,
@@ -74,19 +75,21 @@ export function WorkspaceProvider({
 }: {
   children: React.ReactNode
 }) {
+  const { user, isAuthenticated } = useAuth()
   const [plans, setPlans] = React.useState<MovingPlan[]>([])
   const [activePlanId, setActivePlanId] = React.useState<string>("")
 
-  // Hidratação a partir do cache local no primeiro render do cliente
+  // Hidratação a partir do cache local no primeiro render do cliente apenas se autenticado
   React.useEffect(() => {
     void Promise.resolve().then(() => {
+      if (!isAuthenticated) return
       const cached = offlineStore.getPlans()
       if (cached && cached.length > 0) {
         setPlans(cached)
         setActivePlanId((prev) => prev || cached[0].id)
       }
     })
-  }, [])
+  }, [isAuthenticated])
 
   const [quickFilter, setQuickFilterState] =
     React.useState<QuickViewFilter>("all")
@@ -218,8 +221,19 @@ export function WorkspaceProvider({
     let isMounted = true
 
     async function loadInitial() {
+      if (!isAuthenticated) {
+        if (isMounted) {
+          setPlans([])
+          setActivePlanId("")
+          setIsLoadingPlans(false)
+        }
+        return
+      }
+
       if (!navigator.onLine) {
-        setIsLoadingPlans(false)
+        if (isMounted) {
+          setIsLoadingPlans(false)
+        }
         return
       }
 
@@ -273,7 +287,7 @@ export function WorkspaceProvider({
     return () => {
       isMounted = false
     }
-  }, [activePlanId])
+  }, [activePlanId, isAuthenticated, user?.id])
 
   // Sincroniza tarefas do plano ativo de forma assíncrona
   React.useEffect(() => {

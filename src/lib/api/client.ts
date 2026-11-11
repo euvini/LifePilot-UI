@@ -1,14 +1,20 @@
 import type {
   AcceptTaskSuggestionsDto,
   AiConfigResponse,
+  AuthResponseDto,
   CreateMovingPlanDto,
   CreateTaskDto,
   GenerateTaskSuggestionsDto,
   HealthResponse,
+  LoginDto,
   MovingPlanResponse,
+  RefreshTokenDto,
+  SignUpDto,
   TaskResponse,
   TaskSuggestionsResponse,
+  TokenResponseDto,
   UpdateTaskDto,
+  UserResponseDto,
 } from "./types"
 
 export class ApiError extends Error {
@@ -25,6 +31,10 @@ export class ApiError extends Error {
     return this.status === 429
   }
 
+  get isUnauthorized(): boolean {
+    return this.status === 401
+  }
+
   get isTimeoutOrUnavailable(): boolean {
     return this.status === 503 || this.status === 504 || this.status === 502
   }
@@ -33,10 +43,91 @@ export class ApiError extends Error {
 const DEFAULT_TIMEOUT_MS = 10000
 const AI_TIMEOUT_MS = 20000
 
+const TOKEN_KEY = "lifepilot_auth_token"
+const REFRESH_TOKEN_KEY = "lifepilot_refresh_token"
+
+export function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function getStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(REFRESH_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setStoredTokens(accessToken: string, refreshToken?: string): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(TOKEN_KEY, accessToken)
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    }
+  } catch {
+    // LocalStorage indisponível
+  }
+}
+
+export function clearStoredTokens(): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  } catch {
+    // LocalStorage indisponível
+  }
+}
+
+let isRefreshing = false
+let refreshPromise: Promise<string | null> | null = null
+
+async function requestRefreshSession(): Promise<string | null> {
+  const refreshToken = getStoredRefreshToken()
+  if (!refreshToken) {
+    clearStoredTokens()
+    return null
+  }
+
+  try {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? (process.env.NEXT_PUBLIC_API_URL || "/api/v1")
+        : (process.env.BACKEND_URL || "http://localhost:3333") + "/api/v1"
+
+    const url = `${baseUrl.replace(/\/$/, "")}/auth/refresh`
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    })
+
+    if (!res.ok) {
+      clearStoredTokens()
+      return null
+    }
+
+    const data = (await res.json()) as TokenResponseDto
+    setStoredTokens(data.accessToken, data.refreshToken)
+    return data.accessToken
+  } catch {
+    clearStoredTokens()
+    return null
+  }
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
-  timeoutMs: number = DEFAULT_TIMEOUT_MS
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  isRetry = false
 ): Promise<T> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -48,15 +139,50 @@ async function request<T>(
 
   const url = `${baseUrl.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`
 
+  // Injeta automaticamente o token de autorização se presente
+  const currentToken = getStoredAccessToken()
+  const existingHeaders = (options.headers as Record<string, string>) || {}
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(currentToken && !existingHeaders["Authorization"]
+      ? { Authorization: `Bearer ${currentToken}` }
+      : {}),
+    ...existingHeaders,
+  }
+
   try {
     const res = await fetch(url, {
       ...options,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     })
+
+    // Caso receba 401 Unauthorized e tenha refresh token (e não seja rota de auth nem retry)
+    if (res.status === 401 && !isRetry && !endpoint.startsWith("auth/")) {
+      if (!isRefreshing) {
+        isRefreshing = true
+        refreshPromise = requestRefreshSession().finally(() => {
+          isRefreshing = false
+          refreshPromise = null
+        })
+      }
+
+      const newAccessToken = await refreshPromise
+      if (newAccessToken) {
+        return request<T>(
+          endpoint,
+          {
+            ...options,
+            headers: {
+              ...existingHeaders,
+              Authorization: `Bearer ${newAccessToken}`,
+            },
+          },
+          timeoutMs,
+          true
+        )
+      }
+    }
 
     if (!res.ok) {
       let errorMessage = `Erro HTTP ${res.status}`
@@ -103,6 +229,32 @@ async function request<T>(
 }
 
 export const api = {
+  auth: {
+    signUp: (dto: SignUpDto) =>
+      request<AuthResponseDto>("auth/signup", {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    login: (dto: LoginDto) =>
+      request<AuthResponseDto>("auth/login", {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    refresh: (dto: RefreshTokenDto) =>
+      request<TokenResponseDto>("auth/refresh", {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    me: () =>
+      request<UserResponseDto>("auth/me", {
+        method: "GET",
+      }),
+    logout: () =>
+      request<void>("auth/logout", {
+        method: "POST",
+      }),
+  },
+
   health: {
     check: () => request<HealthResponse>("health", { method: "GET" }, 5000),
     ai: () => request<AiConfigResponse>("health/ai", { method: "GET" }, 5000),

@@ -14,10 +14,12 @@ export function MobileBottomNav() {
   const { activePlan, plans, setQuickFilter } = useWorkspaceStore()
 
   // Oculta a barra de navegação nas rotas do wizard (que têm seu próprio sticky action footer)
-  // e na página isolada do design-system
+  // e nas páginas isoladas de design-system e autenticação
   if (
     pathname?.startsWith("/novo-plano") ||
-    pathname?.startsWith("/design-system")
+    pathname?.startsWith("/design-system") ||
+    pathname === "/login" ||
+    pathname === "/cadastro"
   ) {
     return null
   }

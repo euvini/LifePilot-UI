@@ -88,3 +88,43 @@ export interface ApiErrorResponse {
   message: string | string[]
   error?: string
 }
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH DTOs & RESPONSES
+// ═══════════════════════════════════════════════════════════════
+
+export interface SignUpDto {
+  email: string
+  password: string
+}
+
+export interface LoginDto {
+  email: string
+  password: string
+}
+
+export interface RefreshTokenDto {
+  refreshToken: string
+}
+
+export interface UserResponseDto {
+  id: string
+  email: string
+  userMetadata?: Record<string, unknown>
+  createdAt?: string
+}
+
+export interface AuthResponseDto {
+  user: UserResponseDto
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+  tokenType: string
+}
+
+export interface TokenResponseDto {
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+  tokenType: string
+}

@@ -3,9 +3,10 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ChevronDown, Plus, Truck } from "lucide-react"
+import { ChevronDown, LogOut, Plus, Truck } from "lucide-react"
 import { cn } from "cn"
 
+import { useAuth } from "@/context/auth-context"
 import { useWorkspaceStore } from "@/context/workspace-store"
 import {
   Popover,
@@ -16,6 +17,7 @@ import {
 export function MobileHeader() {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, logout } = useAuth()
   const { plans, activePlan, selectPlan, isOnline, isSyncing } =
     useWorkspaceStore()
 
@@ -28,8 +30,12 @@ export function MobileHeader() {
     return dest || activePlan.sidebarTitle.slice(0, 10)
   }, [activePlan])
 
-  // Oculta o header genérico nas telas de wizard que possuem seu próprio App Bar nativo
-  if (pathname?.startsWith("/novo-plano")) {
+  // Oculta o header genérico nas telas de wizard e rotas de autenticação
+  if (
+    pathname?.startsWith("/novo-plano") ||
+    pathname === "/login" ||
+    pathname === "/cadastro"
+  ) {
     return null
   }
 
@@ -155,6 +161,30 @@ export function MobileHeader() {
                   <span>Cadastrar Novo Plano</span>
                 </button>
               </div>
+
+              {user && (
+                <div className="mt-1 flex items-center justify-between border-t border-border pt-2 px-1">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-sans text-xs font-semibold text-ink">
+                      {user.email}
+                    </span>
+                    <span className="font-mono text-[9px] text-ink-muted">
+                      Conectado
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false)
+                      void logout()
+                    }}
+                    title="Sair"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-danger-soft hover:text-danger"
+                  >
+                    <LogOut className="size-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </PopoverContent>
         </Popover>

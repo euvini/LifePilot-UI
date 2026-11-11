@@ -11,6 +11,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, AuthRouteGuard } from "@/context/auth-context";
 import { WorkspaceProvider } from "@/context/workspace-store";
 import "./globals.css";
 
@@ -50,26 +51,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <TooltipProvider>
-          <WorkspaceProvider>
-            <div className="flex min-h-dvh w-full bg-canvas text-sm leading-4 antialiased">
-              <Suspense
-                fallback={
-                  <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 border-r border-border bg-surface-subtle tablet:flex" />
-                }
-              >
-                <AppSidebar />
-              </Suspense>
-              <div className="flex min-w-0 grow basis-0 flex-col pb-20 tablet:pb-0">
-                <Suspense fallback={null}>
-                  <MobileHeader />
+          <AuthProvider>
+            <Suspense fallback={null}>
+              <AuthRouteGuard />
+            </Suspense>
+            <WorkspaceProvider>
+              <div className="flex min-h-dvh w-full bg-canvas text-sm leading-4 antialiased">
+                <Suspense
+                  fallback={
+                    <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 border-r border-border bg-surface-subtle tablet:flex" />
+                  }
+                >
+                  <AppSidebar />
                 </Suspense>
-                {children}
-                <Suspense fallback={null}>
-                  <MobileBottomNav />
-                </Suspense>
+                <div className="flex min-w-0 grow basis-0 flex-col pb-20 tablet:pb-0">
+                  <Suspense fallback={null}>
+                    <MobileHeader />
+                  </Suspense>
+                  {children}
+                  <Suspense fallback={null}>
+                    <MobileBottomNav />
+                  </Suspense>
+                </div>
               </div>
-            </div>
-          </WorkspaceProvider>
+            </WorkspaceProvider>
+          </AuthProvider>
         </TooltipProvider>
         <Toaster />
       </body>
